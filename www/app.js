@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'B'];
@@ -133,7 +133,7 @@ function planFor(dateISO) {
     const persons = S.persons.filter(p => p.lineId === L.id && gids.has(p.group) && personInService(p));
     const idx = s => { const i = L.stops.indexOf(s); return i < 0 ? 999 : i; };
     const splitIdx = cfg.buses === 2 && cfg.firstStopBus1 ? idx(cfg.firstStopBus1) : -1;
-    const busOf = sid => { if (cfg.buses !== 2) return 1; const i = idx(sid); return i === 999 ? 2 : (i >= splitIdx ? 1 : 2); };
+    const busOf = sid => { if (cfg.buses !== 2) return 1; const ov = (cfg.stopBus || {})[sid]; if (ov === 1 || ov === 2) return ov; const i = idx(sid); return i === 999 ? 2 : (i >= splitIdx ? 1 : 2); };
     const rows = persons.map(p => { const g = groupById(p.group); const prev = g ? groupPrevStatus(g, dateISO) : 'work'; return { p, dir: prev === 'work' ? 'toHome' : 'toWork', stopId: p.homeId, bus: busOf(p.homeId) }; });
     const byStop = {}; rows.forEach(r => { (byStop[r.stopId] = byStop[r.stopId] || []).push(r); });
     const stopList = L.stops.filter(s => byStop[s]).concat(Object.keys(byStop).filter(s => !L.stops.includes(s)));
@@ -628,17 +628,19 @@ function renderPlan(m) {
   $$('[data-buses]', m).forEach(s => s.onchange = () => { planCfg(s.dataset.buses).buses = +s.value; save(); render(); });
   $$('[data-split]', m).forEach(s => s.onchange = () => { planCfg(s.dataset.split).firstStopBus1 = s.value; save(); render(); });
   $$('[data-note]', m).forEach(s => s.onchange = () => { planCfg(s.dataset.note).note = s.value; save(); });
+  $$('[data-sb]', m).forEach(s => s.onchange = () => { const c = planCfg(s.dataset.sb); c.stopBus = c.stopBus || {}; c.stopBus[s.dataset.stop] = +s.value; save(); render(); });
+  $$('[data-sbreset]', m).forEach(b => b.onclick = () => { planCfg(b.dataset.sbreset).stopBus = {}; save(); render(); });
   $('#pPrint').onclick = () => printReport('plan', { date: planDate });
   $('#pXls').onclick = () => exportPlanExcel(planDate);
 }
 function planLineHtml(pl) {
   const L = pl.line, cfg = pl.cfg;
   if (!pl.rows.length) return `<div class="card tight"><i class="dot" style="background:${lineColor(L)}"></i> <b>${h(lname(L))}</b> <span class="muted small">— ${t('bu tarihte yolcu yok')}</span></div>`;
-  const stopHtml = sid => { const rs = pl.byStop[sid]; const bus = rs[0].bus; return `<div class="plan-stop ${cfg.buses === 2 ? 'bus' + bus : ''}"><div class="hd"><span dir="auto">${h(placeName(sid))} ${L.stops.includes(sid) ? '' : `<span class="badge warn">${t('durak tanımsız')}</span>`}</span><span class="small muted">${cfg.buses === 2 ? t('Otobüs') + ' ' + bus + ' · ' : ''}${t('eve')} ${rs.filter(r => r.dir === 'toHome').length} · ${t('işe')} ${rs.filter(r => r.dir === 'toWork').length}</span></div><ul>${rs.map(r => `<li>${r.dir === 'toHome' ? '🏠' : '🏭'} <span dir="auto">${h(r.p.name)}</span> <span class="muted small">${h(r.p.group)}</span></li>`).join('')}</ul></div>`; };
+  const stopHtml = sid => { const rs = pl.byStop[sid]; const bus = rs[0].bus; return `<div class="plan-stop ${cfg.buses === 2 ? 'bus' + bus : ''}"><div class="hd"><span dir="auto">${h(placeName(sid))} ${L.stops.includes(sid) ? '' : `<span class="badge warn">${t('durak tanımsız')}</span>`}</span><span class="small muted">${cfg.buses === 2 ? `<select class="sb" data-sb="${L.id}" data-stop="${sid}"><option value="1" ${bus === 1 ? 'selected' : ''}>${t('Otobüs')} 1</option><option value="2" ${bus === 2 ? 'selected' : ''}>${t('Otobüs')} 2</option></select> · ` : ''}${t('eve')} ${rs.filter(r => r.dir === 'toHome').length} · ${t('işe')} ${rs.filter(r => r.dir === 'toWork').length}</span></div><ul>${rs.map(r => `<li>${r.dir === 'toHome' ? '🏠' : '🏭'} <span dir="auto">${h(r.p.name)}</span> <span class="muted small">${h(r.p.group)}</span></li>`).join('')}</ul></div>`; };
   return `<div class="card"><div class="row between"><h2><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))} <span class="muted small">— ${t('eve dönen')} ${pl.toHome}, ${t('işe giden')} ${pl.toWork}, ${t('toplam')} ${pl.rows.length}</span></h2>
-    <div class="row"><label class="f">${t('Otobüs sayısı')}<select data-buses="${L.id}"><option value="1" ${cfg.buses !== 2 ? 'selected' : ''}>${t('1 otobüs')}</option><option value="2" ${cfg.buses === 2 ? 'selected' : ''}>${t('2 otobüs (ekspres + toplayıcı)')}</option></select></label>
-    ${cfg.buses === 2 ? `<label class="f">${t('Otobüs 1 (ekspres) ilk durağı')}<select data-split="${L.id}">${opt(L.stops.map(s => ({ id: s, name: placeName(s) })), cfg.firstStopBus1, x => x.name, x => x.id, t('— seçiniz —'))}</select></label>` : ''}</div></div>
-    ${cfg.buses === 2 ? `<div class="legend"><span class="badge info">${t('Otobüs')} 1</span> ${t('ekspres: seçilen duraktan önce kimseyi almaz/bırakmaz')} · <span class="badge warn">${t('Otobüs')} 2</span> ${t('kalan durakları toplar')}</div>` : ''}
+    <div class="row"><label class="f">${t('Sefer türü')}<select data-buses="${L.id}"><option value="1" ${cfg.buses !== 2 ? 'selected' : ''}>${t('Normal (1 otobüs)')}</option><option value="2" ${cfg.buses === 2 ? 'selected' : ''}>${t('Özel durum: 2 otobüs')}</option></select></label>
+    ${cfg.buses === 2 ? `<label class="f">${t('Otobüs 1 (ekspres) ilk durağı')}<select data-split="${L.id}">${opt(L.stops.map(s => ({ id: s, name: placeName(s) })), cfg.firstStopBus1, x => x.name, x => x.id, t('— seçiniz —'))}</select></label><button class="btn sm" data-sbreset="${L.id}" style="margin-top:16px" title="${t('Durak bazlı atamaları temizle')}">${t('Atamaları sıfırla')}</button>` : ''}</div></div>
+    ${cfg.buses === 2 ? `<div class="legend"><span class="badge info">${t('Otobüs')} 1</span> ${t('ekspres: seçilen duraktan önce kimseyi almaz/bırakmaz')} · <span class="badge warn">${t('Otobüs')} 2</span> ${t('kalan durakları toplar')} · ${t('İstersen her durağın otobüsünü aşağıdan tek tek değiştirebilirsin.')}</div>` : ''}
     <div class="grid c2" style="margin-top:8px">${pl.stopList.map(stopHtml).join('')}</div>
     <label class="f" style="margin-top:8px">${t('Not (çıktıda görünür)')}<input data-note="${L.id}" value="${h(cfg.note || '')}"></label></div>`;
 }
