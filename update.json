@@ -1,6 +1,6 @@
 {
-  "version": "1.7.0",
-  "notes": "Şoför bazlı Aktif / İstirahatte seçimi (bir sonraki şoför değişimine kadar geçerli).",
+  "version": "1.8.0",
+  "notes": "Sürüm numaralandırması 1.0.0'dan yeniden başladı; bundan sonra 1.0.1, 1.0.2… şeklinde artar.",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -10,5 +10,6 @@
     "www/map.js",
     "www/vendor/leaflet.js",
     "www/vendor/leaflet.css"
-  ]
+  ],
+  "display": "1.0.0"
 }

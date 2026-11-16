@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.0.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
@@ -252,11 +252,12 @@ async function autoUpdate(manual) {
   updBusy = true;
   try {
     const url = await resolveUpdateBase(S.settings.updateUrl || DEFAULT_UPDATE_URL);
-    const r = await window.electronAPI.checkUpdate(url); lastUpdCheck = Date.now(); lastUpdErr = ''; currentVer = r.current;
-    updateAvail = r.available ? r.remote : null; renderTopbar();
+    const r = await window.electronAPI.checkUpdate(url); lastUpdCheck = Date.now(); lastUpdErr = '';
+    let disp = r.remote; try { const mf = await (await fetch(url + 'update.json', { cache: 'no-store' })).json(); disp = mf.display || mf.version; } catch (e) { }
+    updateAvail = r.available ? disp : null; renderTopbar();
     if (r.available) {
-      const a = await window.electronAPI.applyUpdate(url); updReady = a.version; save(true); renderTopbar();
-      toast(t('Sürüm {0} indirildi; uygulama birazdan kendini yenileyecek', a.version));
+      await window.electronAPI.applyUpdate(url); updReady = disp; save(true); renderTopbar();
+      toast(t('Sürüm {0} indirildi; uygulama birazdan kendini yenileyecek', disp));
       scheduleRestart();
     }
   } catch (e) { lastUpdCheck = Date.now(); lastUpdErr = e.message || String(e); renderTopbar(); }
@@ -857,7 +858,7 @@ function renderSettings(m) {
   $('#bkExp').onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
   $('#bkImp').onclick = importBackup;
   $('#bkReset').onclick = () => confirmDlg(t("Tüm veriler silinip Excel'den gelen başlangıç verisi yüklenecek. Devam?"), async () => { const lang = S.settings.lang; S = await loadSeed(emptyState()); S.settings.lang = lang; save(true); mapFitted = false; render(); });
-  if (isElectron) { window.electronAPI.dataPath().then(p => { $('#dataPath').textContent = t('Veri dosyası') + ': ' + p; }); window.electronAPI.appInfo().then(i => { $('#curVer').textContent = i.activeVersion + (i.updatedCopy ? ' (' + t('güncellenmiş') + ')' : ''); }); }
+  if (isElectron) { window.electronAPI.dataPath().then(p => { $('#dataPath').textContent = t('Veri dosyası') + ': ' + p; });  }
   $('#updCheck').onclick = async () => {
     const msg = $('#updMsg'); if (!isElectron) return msg.textContent = t('Sadece masaüstü uygulamasında.');
     msg.textContent = t('Kontrol ediliyor…');
@@ -889,7 +890,7 @@ function editLetterhead(id) {
   applyLang(S.settings.lang || 'tr');
   renderNav();
   $('#langSel').onchange = e => { S.settings.lang = e.target.value; save(); applyLang(S.settings.lang); renderNav(); render(); };
-  const start = () => { $('#lock').classList.add('hidden'); render(); if (isElectron) window.electronAPI.appInfo().then(i => { currentVer = i.activeVersion; }).catch(() => { }); setTimeout(() => autoUpdate(false), 1500); setInterval(() => autoUpdate(false), 20 * 60 * 1000); window.addEventListener('online', () => autoUpdate(false)); if (navigator.onLine !== false) autoRouteAll(false).then(r => { if (r.ok && (page === 'dash' || page === 'mainlines')) render(); }); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
+  const start = () => { $('#lock').classList.add('hidden'); render(); setTimeout(() => autoUpdate(false), 1500); setInterval(() => autoUpdate(false), 20 * 60 * 1000); window.addEventListener('online', () => autoUpdate(false)); if (navigator.onLine !== false) autoRouteAll(false).then(r => { if (r.ok && (page === 'dash' || page === 'mainlines')) render(); }); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
   if (S.settings.pin) {
     $('#lock').classList.remove('hidden'); $('#lockTitle').textContent = t('İdareci şifresi'); $('#lockBtn').textContent = t('Giriş');
     const tryPin = () => { if ($('#lockPin').value === S.settings.pin) start(); else $('#lockErr').textContent = t('Hatalı şifre'); };

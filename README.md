@@ -16,7 +16,7 @@ altına yazar ve yeniden başlar. Kişi verileri `%APPDATA%/merkezi-servis/merke
 dosyasındadır; güncellemeden etkilenmez.
 
 Yeni sürüm yayınlamak için:
-    node bump.js 1.0.1 "Değişiklik notu"
+    node bump.js "Değişiklik notu yerine sürüm verilmezse 1.0.x otomatik artar"
     git add -A && git commit -m "v1.0.1" && git push
 
 `www/seed.json` (personel başlangıç verisi) depoya gönderilmez.
