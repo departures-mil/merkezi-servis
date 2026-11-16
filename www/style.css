@@ -130,3 +130,41 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .print-area .pb{page-break-before:always}
 .print-area .sig{display:flex;justify-content:space-between;margin-top:30px}
 .print-area .sig div{text-align:center;min-width:180px;border-top:1px solid #333;padding-top:4px}
+
+/* ---------- dil / RTL ---------- */
+.lang{width:100%;margin-bottom:8px;background:#2b3140;color:#fff;border-color:#3b4252}
+th,td{text-align:start}
+[dir=rtl] .side-foot,[dir=rtl] .brand{text-align:right}
+[dir=rtl] .bus1,[dir=rtl] .bus2{border-left:none}
+[dir=rtl] .bus1{border-right:5px solid #1d4ed8}
+[dir=rtl] .bus2{border-right:5px solid #b45309}
+[dir=rtl] .print-area .sec{border-left:none;border-right:4px solid #8a7a4e;padding-left:0;padding-right:6px}
+[dir=rtl] .plan-stop ul{padding-right:0}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-inline-end:2px}
+
+/* ---------- harita ---------- */
+.map-wrap{position:relative}
+.map-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 6px 8px}
+.map-tools .legend{display:flex;gap:10px;flex-wrap:wrap;margin-inline-start:8px}
+.map-tools .lg{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.map-tools .lg i{width:14px;height:4px;border-radius:2px;display:inline-block}
+#mapHost{height:520px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#dbeafe}
+#mapSvg{width:100%;height:100%;display:block;cursor:grab;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+#mapSvg:active{cursor:grabbing}
+.mlbl-country{font-size:11px;fill:#64748b;font-style:italic;letter-spacing:.5px;pointer-events:none}
+.mlbl-city{font-size:7px;fill:#94a3b8;pointer-events:none}
+.mline-halo{fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.mline{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;cursor:pointer;stroke-dasharray:10 5;animation:mdash 14s linear infinite}
+.mline:hover{stroke-width:5}
+@keyframes mdash{to{stroke-dashoffset:-300}}
+.mline-tag{cursor:pointer}
+.mline-tag text{font-size:9px;fill:#fff;font-weight:600}
+.mstop{cursor:pointer}
+.mstop.drag{cursor:move}
+.mstop:hover circle,.mstop:hover rect{stroke:#111;stroke-width:2.5}
+.mcnt{font-size:8px;fill:#fff;font-weight:700;text-anchor:middle;pointer-events:none}
+.mico{font-size:11px;text-anchor:middle;pointer-events:none}
+.mname{font-size:7.5px;fill:#1f2937;text-anchor:middle;paint-order:stroke;stroke:#fff;stroke-width:2.5px;stroke-linejoin:round;pointer-events:none;font-weight:600}
+.mstop.work .mname{font-size:9px;fill:#5b4f2b}
+.map-pop{position:absolute;width:330px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.22);padding:12px;z-index:5}
+.map-pop .pill{cursor:pointer}

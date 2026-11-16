@@ -1,69 +1,65 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
-const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B1'];
+const GROUPS_DEFAULT = ['A', 'B'];
 const isElectron = !!window.electronAPI;
+
+// ---------------- dil (i18n) ----------------
+const LANGS = { tr: 'Türkçe', ar: 'العربية', en: 'English' };
+let LANG = 'tr';
+function t(s, ...args) { const d = (window.I18N || {})[LANG]; let r = (d && d[s]) || s; args.forEach((a, i) => { r = r.replace('{' + i + '}', a); }); return r; }
+const DAYS = { tr: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'], ar: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'], en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] };
 
 // ---------------- yardımcılar ----------------
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = p => (p || 'x') + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-3);
-const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const toISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const todayISO = () => toISO(new Date());
 const parseISO = s => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
 const addDays = (iso, n) => { const d = parseISO(iso); d.setDate(d.getDate() + n); return toISO(d); };
 const diffDays = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 86400000);
 const fmt = iso => iso ? iso.split('-').reverse().join('.') : '—';
-const DAYS_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-const dayName = iso => DAYS_TR[parseISO(iso).getDay()];
-const sortTR = (a, b) => String(a).localeCompare(String(b), 'tr');
+const dayName = iso => (DAYS[LANG] || DAYS.tr)[parseISO(iso).getDay()];
+const sortTR = (a, b) => String(a).localeCompare(String(b), LANG);
 let toastT;
-function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hidden'), 2800); }
+function toast(msg, err) { const el = $('#toast'); el.textContent = msg; el.className = 'toast' + (err ? ' err' : ''); clearTimeout(toastT); toastT = setTimeout(() => el.classList.add('hidden'), 2800); }
 
 // ---------------- durum (state) ----------------
 let S = null;
 function emptyState() {
   return {
     schemaVersion: 1, savedAt: 0,
-    settings: {
-      orgName: 'Merkezi Servis Hizmeti', adminName: 'İdareci', pin: '',
-      cycleDays: 10, exemptKeywords: EXEMPT_DEFAULT.slice(),
-      updateUrl: DEFAULT_UPDATE_URL, defaultLetterheadId: 'lh-default'
-    },
+    settings: { orgName: 'Merkezi Servis Hizmeti', adminName: 'İdareci', pin: '', lang: 'tr', cycleDays: 10, exemptKeywords: EXEMPT_DEFAULT.slice(), updateUrl: DEFAULT_UPDATE_URL, defaultLetterheadId: 'lh-default' },
     groups: GROUPS_DEFAULT.map(g => ({ id: g, name: g, status: g.startsWith('A') ? 'work' : 'home', statusSince: todayISO(), nextChange: '', customDates: [] })),
     driver: { cycleDays: 10, activeTeam: 1, statusSince: todayISO(), nextChange: '', customDates: [] },
-    places: [], lines: [], persons: [], drivers: [
-      { id: 'd1', name: 'Şoför 1', phone: '', team: 1, startDate: '', endDate: '', notes: '' },
-      { id: 'd2', name: 'Şoför 2', phone: '', team: 1, startDate: '', endDate: '', notes: '' },
-      { id: 'd3', name: 'Şoför 3', phone: '', team: 2, startDate: '', endDate: '', notes: '' },
-      { id: 'd4', name: 'Şoför 4', phone: '', team: 2, startDate: '', endDate: '', notes: '' }
-    ],
+    places: [], lines: [], persons: [],
+    drivers: [1, 2, 3, 4].map(i => ({ id: 'd' + i, name: 'Şoför ' + i, phone: '', team: i <= 2 ? 1 : 2, startDate: '', endDate: '', notes: '' })),
     letterheads: [{ id: 'lh-default', name: 'Varsayılan antet (Şablon)', kind: 'builtin', left: 'Ministry of Defense\nUAV Administration\nFixed Wing Division', right: 'وزارة الدفاع السورية\nإدارة المسيرات\nفرع المجنح', logo: 'assets/logo.png', watermark: true, footer: 'نسخة إلى: ديوان الفرع' }],
     plans: {}
   };
 }
 async function loadSeed(st) {
-  try {
-    const r = await fetch('seed.json'); const seed = await r.json();
-    st.places = seed.places; st.lines = seed.lines; st.persons = seed.persons;
-  } catch (e) { console.warn('seed yüklenemedi', e); }
+  try { const r = await fetch('seed.json'); const seed = await r.json(); st.places = seed.places; st.lines = seed.lines; st.persons = seed.persons; } catch (e) { console.warn('seed yüklenemedi', e); }
   return st;
 }
 const LS_KEY = 'merkezi-servis-state';
 async function loadState() {
   let local = null, disk = null;
   try { local = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) { }
-  if (isElectron) { try { const t = await window.electronAPI.loadData(); if (t) disk = JSON.parse(t); } catch (e) { } }
-  let st = null;
-  if (local && disk) st = (disk.savedAt || 0) >= (local.savedAt || 0) ? disk : local; else st = disk || local;
+  if (isElectron) { try { const x = await window.electronAPI.loadData(); if (x) disk = JSON.parse(x); } catch (e) { } }
+  let st = local && disk ? ((disk.savedAt || 0) >= (local.savedAt || 0) ? disk : local) : (disk || local);
   if (!st) { st = await loadSeed(emptyState()); st.firstRun = true; }
-  // eksik alanları tamamla
   const e = emptyState();
   st.settings = Object.assign(e.settings, st.settings || {});
   st.groups = st.groups && st.groups.length ? st.groups : e.groups;
+  // A1/B1 alt grupları A/B ile birleştir (yalnızca A ve B değişim grubu)
+  const normG = g => g === 'A1' ? 'A' : g === 'B1' ? 'B' : g;
+  (st.persons || []).forEach(p => { if (p.group === 'A1' || p.group === 'B1') { p.subgroup = p.group; p.group = normG(p.group); } });
+  if (st.groups.some(g => g.id === 'A1' || g.id === 'B1')) st.groups = st.groups.filter(g => g.id !== 'A1' && g.id !== 'B1');
   st.driver = Object.assign(e.driver, st.driver || {});
   st.drivers = st.drivers || e.drivers; st.letterheads = st.letterheads && st.letterheads.length ? st.letterheads : e.letterheads;
   st.plans = st.plans || {}; st.places = st.places || []; st.lines = st.lines || []; st.persons = st.persons || [];
@@ -74,9 +70,9 @@ function save(immediate) {
   S.savedAt = Date.now();
   const json = JSON.stringify(S);
   try { localStorage.setItem(LS_KEY, json); } catch (e) { }
-  $('#saveInfo').textContent = 'Kaydediliyor…';
+  $('#saveInfo').textContent = t('Kaydediliyor…');
   clearTimeout(saveT);
-  const doDisk = async () => { if (isElectron) await window.electronAPI.saveData(json); $('#saveInfo').textContent = 'Kaydedildi ' + new Date().toLocaleTimeString('tr'); };
+  const doDisk = async () => { if (isElectron) await window.electronAPI.saveData(json); $('#saveInfo').textContent = t('Kaydedildi') + ' ' + new Date().toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG); };
   if (immediate) doDisk(); else saveT = setTimeout(doDisk, 400);
 }
 
@@ -84,17 +80,24 @@ function save(immediate) {
 const placeById = id => S.places.find(p => p.id === id);
 const placeName = id => (placeById(id) || {}).name || '—';
 const lineById = id => S.lines.find(l => l.id === id);
-const lineName = id => (lineById(id) || {}).name || '—';
+const lname = L => L ? ((LANG === 'ar' && L.nameAr) || (LANG === 'en' && L.nameEn) || L.name) : '—';
+const lineName = id => lname(lineById(id));
 const groupById = id => S.groups.find(g => g.id === id);
 const workPlaces = () => S.places.filter(p => p.type === 'work');
 const homePlaces = () => S.places.filter(p => p.type !== 'work');
 function placeIsExemptByKeyword(name) { return (S.settings.exemptKeywords || []).some(k => k && name.includes(k)); }
 function placeExempt(p) { return p.exempt === true || (p.exempt == null && placeIsExemptByKeyword(p.name)); }
-function personExempt(p) {
-  if (p.exempt === true) return true; if (p.exempt === false) return false;
-  const pl = placeById(p.homeId); return !!(pl && placeExempt(pl));
-}
+function personExempt(p) { if (p.exempt === true) return true; if (p.exempt === false) return false; const pl = placeById(p.homeId); return !!(pl && placeExempt(pl)); }
 const personInService = p => p.active !== false && !personExempt(p);
+function placeCoord(p) {
+  if (p.lat != null && p.lon != null) return { lon: +p.lon, lat: +p.lat, auto: false };
+  const g = GEO.lookup(p.name);
+  // aynı noktaya düşenleri hafifçe ayır (ada göre deterministik)
+  let hsh = 0; for (const c of p.name) hsh = (hsh * 31 + c.charCodeAt(0)) & 0xffff;
+  const jx = ((hsh % 13) - 6) * 0.012, jy = (((hsh >> 4) % 11) - 5) * 0.012;
+  if (g) return { lon: g.lon + (g.key.length <= 5 ? jx : 0), lat: g.lat + (g.key.length <= 5 ? jy : 0), auto: true };
+  return { lon: 36.9 + jx * 6, lat: 34.8 + jy * 6, auto: true, unknown: true };
+}
 
 // ---------------- vardiya hesapları ----------------
 function changeDatesBetween(cfg, cycleDays, a, b) {
@@ -109,43 +112,31 @@ function changeDatesBetween(cfg, cycleDays, a, b) {
 }
 function statusAt(cfg, cycleDays, dateISO, curStatus) {
   const R = cfg.statusSince || todayISO();
-  let n;
-  if (dateISO >= R) n = changeDatesBetween(cfg, cycleDays, addDays(R, 1), dateISO).length;
-  else n = changeDatesBetween(cfg, cycleDays, addDays(dateISO, 1), R).length;
-  const flip = s => s === 'work' ? 'home' : 'work';
-  return n % 2 === 0 ? curStatus : flip(curStatus);
+  const n = dateISO >= R ? changeDatesBetween(cfg, cycleDays, addDays(R, 1), dateISO).length : changeDatesBetween(cfg, cycleDays, addDays(dateISO, 1), R).length;
+  return n % 2 === 0 ? curStatus : (curStatus === 'work' ? 'home' : 'work');
 }
 const groupStatusAt = (g, d) => statusAt(g, S.settings.cycleDays, d, g.status);
 function groupNextChange(g, from) { const l = changeDatesBetween(g, S.settings.cycleDays, from || todayISO(), addDays(from || todayISO(), 400)); return l[0] || ''; }
 const groupPrevStatus = (g, d) => groupStatusAt(g, addDays(d, -1));
-function driverTeamAt(d) { const st = statusAt(S.driver, S.driver.cycleDays, d, S.driver.activeTeam === 1 ? 'work' : 'home'); return st === 'work' ? 1 : 2; }
+function driverTeamAt(d) { return statusAt(S.driver, S.driver.cycleDays, d, S.driver.activeTeam === 1 ? 'work' : 'home') === 'work' ? 1 : 2; }
 function driverNextChange(from) { const l = changeDatesBetween(S.driver, S.driver.cycleDays, from || todayISO(), addDays(from || todayISO(), 400)); return l[0] || ''; }
 function changesOn(dateISO) { return S.groups.filter(g => changeDatesBetween(g, S.settings.cycleDays, dateISO, dateISO).length > 0); }
-function upcomingChangeDates(n) {
-  const set = new Set(); const t = todayISO();
-  S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, t, addDays(t, 400)).forEach(d => set.add(d)));
-  return Array.from(set).sort().slice(0, n || 12);
-}
+function upcomingChangeDates(n) { const set = new Set(); const d0 = todayISO(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, d0, addDays(d0, 400)).forEach(d => set.add(d))); return Array.from(set).sort().slice(0, n || 12); }
+const stWork = (g, d) => g && groupStatusAt(g, d) === 'work';
 
 // ---------------- sefer planı ----------------
 function planFor(dateISO) {
-  const groups = changesOn(dateISO);
-  const gids = new Set(groups.map(g => g.id));
+  const groups = changesOn(dateISO); const gids = new Set(groups.map(g => g.id));
   const result = { date: dateISO, groups, lines: [] };
   S.lines.forEach(L => {
-    const stopsOrder = L.stops.slice();
     const cfg = (S.plans[dateISO] || {})[L.id] || { buses: 1, firstStopBus1: '' };
     const persons = S.persons.filter(p => p.lineId === L.id && gids.has(p.group) && personInService(p));
-    const idx = s => { const i = stopsOrder.indexOf(s); return i < 0 ? 999 : i; };
+    const idx = s => { const i = L.stops.indexOf(s); return i < 0 ? 999 : i; };
     const splitIdx = cfg.buses === 2 && cfg.firstStopBus1 ? idx(cfg.firstStopBus1) : -1;
-    const busOf = stopId => { if (cfg.buses !== 2) return 1; const i = idx(stopId); if (i === 999) return 2; return i >= splitIdx ? 1 : 2; };
-    const rows = persons.map(p => {
-      const g = groupById(p.group); const prev = g ? groupPrevStatus(g, dateISO) : 'work';
-      return { p, dir: prev === 'work' ? 'toHome' : 'toWork', stopId: p.homeId, bus: busOf(p.homeId) };
-    });
-    const byStop = {};
-    rows.forEach(r => { (byStop[r.stopId] = byStop[r.stopId] || []).push(r); });
-    const stopList = stopsOrder.filter(s => byStop[s]).concat(Object.keys(byStop).filter(s => !stopsOrder.includes(s)));
+    const busOf = sid => { if (cfg.buses !== 2) return 1; const i = idx(sid); return i === 999 ? 2 : (i >= splitIdx ? 1 : 2); };
+    const rows = persons.map(p => { const g = groupById(p.group); const prev = g ? groupPrevStatus(g, dateISO) : 'work'; return { p, dir: prev === 'work' ? 'toHome' : 'toWork', stopId: p.homeId, bus: busOf(p.homeId) }; });
+    const byStop = {}; rows.forEach(r => { (byStop[r.stopId] = byStop[r.stopId] || []).push(r); });
+    const stopList = L.stops.filter(s => byStop[s]).concat(Object.keys(byStop).filter(s => !L.stops.includes(s)));
     result.lines.push({ line: L, cfg, rows, byStop, stopList, toHome: rows.filter(r => r.dir === 'toHome').length, toWork: rows.filter(r => r.dir === 'toWork').length });
   });
   return result;
@@ -153,6 +144,18 @@ function planFor(dateISO) {
 
 // ---------------- router ----------------
 let page = 'dash';
+const NAV = [['dash', '🏠', 'Genel Durum'], ['persons', '👥', 'Kişiler'], ['lines', '🛣️', 'Hatlar & Duraklar'], ['places', '📍', 'Yerleşim Yerleri'], ['shifts', '🔄', 'Vardiya & Değişim'], ['drivers', '🚌', 'Şoförler'], ['plan', '🗓️', 'Sefer Planı'], ['reports', '🖨️', 'Çıktılar'], ['settings', '⚙️', 'Ayarlar']];
+function renderNav() {
+  $('#nav').innerHTML = NAV.map(([p, ic, lb]) => `<a data-page="${p}" class="${p === page ? 'active' : ''}">${ic} ${h(t(lb))}</a>`).join('');
+  $$('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
+  $('#langSel').innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === LANG ? 'selected' : ''}>${v}</option>`).join('');
+  $('#brandSub').textContent = S.settings.orgName;
+}
+function applyLang(l) {
+  LANG = LANGS[l] ? l : 'tr'; document.documentElement.lang = LANG; document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+  document.title = t('Merkezi Servis');
+  $('#verInfo').textContent = 'v' + APP_VERSION + (isElectron ? '' : ' · ' + t('tarayıcı'));
+}
 function go(p) { page = p; $$('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === p)); render(); $('#main').scrollTop = 0; }
 function render() {
   const m = $('#main');
@@ -171,66 +174,186 @@ function modal(html, onMount) {
   return close;
 }
 function confirmDlg(msg, cb) {
-  modal(`<h2>Onay</h2><p>${h(msg)}</p><div class="actions"><button class="btn" data-close>Vazgeç</button><button class="btn danger" id="okBtn">Evet</button></div>`, (r, close) => { $('#okBtn', r).onclick = () => { close(); cb(); }; });
+  modal(`<h2>${t('Onay')}</h2><p>${h(msg)}</p><div class="actions"><button class="btn" data-close>${t('Vazgeç')}</button><button class="btn danger" id="okBtn">${t('Evet')}</button></div>`, (r, close) => { $('#okBtn', r).onclick = () => { close(); cb(); }; });
 }
 const opt = (list, val, label = x => x.name, value = x => x.id, empty) => (empty ? `<option value="">${h(empty)}</option>` : '') + list.map(x => `<option value="${h(value(x))}" ${value(x) === val ? 'selected' : ''}>${h(label(x))}</option>`).join('');
+const cancelBtn = () => `<button class="btn" data-close>${t('Vazgeç')}</button>`;
+const statusBadge = st => st ? (st === 'work' ? `<span class="badge ok">${t('İşte')}</span>` : `<span class="badge gray">${t('Evde')}</span>`) : '';
+
+// ================= HARİTA =================
+const LINE_COLORS = ['#1d4ed8', '#b45309', '#15803d', '#be185d', '#7c3aed', '#0e7490', '#b91c1c', '#4d7c0f'];
+const lineColor = L => L.color || LINE_COLORS[Math.max(0, S.lines.indexOf(L)) % LINE_COLORS.length];
+const MAP = { W: 900, H: 640, lon0: 35.4, lon1: 42.6, lat0: 32.1, lat1: 37.5 };
+let mapView = { x: 0, y: 0, w: 320, h: 420, editing: false };
+function proj(lon, lat) { const kx = MAP.W / (MAP.lon1 - MAP.lon0); const ky = MAP.H / (MAP.lat1 - MAP.lat0); return [(lon - MAP.lon0) * kx, (MAP.lat1 - lat) * ky]; }
+function unproj(x, y) { const kx = MAP.W / (MAP.lon1 - MAP.lon0); const ky = MAP.H / (MAP.lat1 - MAP.lat0); return [x / kx + MAP.lon0, MAP.lat1 - y / ky]; }
+function smoothPath(pts) { if (pts.length < 2) return ''; let d = `M${pts[0][0]},${pts[0][1]}`; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2; const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]; d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`; } return d; }
+function mapHtml() {
+  const d0 = todayISO();
+  const inService = S.persons.filter(personInService);
+  const used = new Set(); S.lines.forEach(L => { used.add(L.endA); L.stops.forEach(s => used.add(s)); }); S.persons.forEach(p => { if (p.homeId) used.add(p.homeId); if (p.workId) used.add(p.workId); });
+  const pts = {}; S.places.forEach(p => { if (used.has(p.id)) { const c = placeCoord(p); pts[p.id] = { ...c, xy: proj(c.lon, c.lat), p }; } });
+  const syria = GEO.syria.map(([lo, la]) => proj(lo, la).join(',')).join(' ');
+  let svg = `<svg id="mapSvg" viewBox="${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#bfdbfe"/></linearGradient>
+  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".25"/></filter>
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#0f172a" stroke-opacity=".04"/></pattern></defs>
+  <rect x="-2000" y="-2000" width="5000" height="5000" fill="url(#sea)"/>
+  <polygon points="${syria}" fill="#f5f0e1" stroke="#a89b6b" stroke-width="1.2" filter="url(#sh)"/>
+  <polygon points="${syria}" fill="url(#grid)"/>`;
+  GEO.neighbors.forEach(([tr, ar, en, lo, la]) => { const [x, y] = proj(lo, la); svg += `<text x="${x}" y="${y}" class="mlbl-country">${h(LANG === 'ar' ? ar : LANG === 'en' ? en : tr)}</text>`; });
+  GEO.cities.forEach(([n, lo, la]) => { const [x, y] = proj(lo, la); svg += `<circle cx="${x}" cy="${y}" r="1.6" fill="#94a3b8"/><text x="${x + 3}" y="${y - 3}" class="mlbl-city">${h(n)}</text>`; });
+  // hatlar
+  S.lines.forEach(L => {
+    const seq = [L.endA, ...L.stops].filter(id => pts[id]).map(id => pts[id].xy);
+    if (seq.length < 2) return;
+    const col = lineColor(L);
+    svg += `<path d="${smoothPath(seq)}" class="mline-halo"/><path d="${smoothPath(seq)}" class="mline" stroke="${col}" data-line="${L.id}"><title>${h(lname(L))}</title></path>`;
+    const mid = seq[Math.floor(seq.length / 2)];
+    svg += `<g class="mline-tag" data-line="${L.id}"><rect x="${mid[0] + 4}" y="${mid[1] - 16}" rx="4" ry="4" width="${lname(L).length * 5.6 + 10}" height="14" fill="${col}"/><text x="${mid[0] + 9}" y="${mid[1] - 6}">${h(lname(L))}</text></g>`;
+  });
+  // duraklar
+  Object.values(pts).forEach(({ p, xy, auto, unknown }) => {
+    const [x, y] = xy; const isWork = p.type === 'work';
+    const ps = inService.filter(q => q.homeId === p.id || (isWork && q.workId === p.id));
+    const atWork = ps.filter(q => stWork(groupById(q.group), d0)).length;
+    const ex = !isWork && placeExempt(p);
+    const col = isWork ? '#8a7a4e' : ex ? '#9ca3af' : (S.lines.find(L => L.stops.includes(p.id)) ? lineColor(S.lines.find(L => L.stops.includes(p.id))) : '#64748b');
+    svg += `<g class="mstop ${isWork ? 'work' : ''} ${mapView.editing ? 'drag' : ''}" data-place="${p.id}" transform="translate(${x},${y})">`;
+    if (isWork) svg += `<rect x="-9" y="-9" width="18" height="18" rx="4" fill="${col}" stroke="#fff" stroke-width="2" filter="url(#sh)"/><text y="4" class="mico">🏭</text>`;
+    else svg += `<circle r="${Math.min(11, 5 + ps.length * 0.6)}" fill="${col}" stroke="#fff" stroke-width="1.8" filter="url(#sh)" ${unknown ? 'stroke-dasharray="2 1.5"' : ''}/>${ps.length ? `<text y="3" class="mcnt">${ps.length}</text>` : ''}`;
+    svg += `<text y="${isWork ? -13 : -(Math.min(11, 5 + ps.length * 0.6) + 3)}" class="mname">${h(p.name)}</text><title>${h(p.name)} — ${ps.length} ${t('kişi')}${isWork ? '' : ' · ' + t('işte') + ' ' + atWork + ' · ' + t('evde') + ' ' + (ps.length - atWork)}</title></g>`;
+  });
+  svg += '</svg>';
+  return svg;
+}
+function mountMap(container) {
+  container.innerHTML = `<div class="map-wrap"><div class="map-tools">
+    <button class="btn sm" id="mzi">＋</button><button class="btn sm" id="mzo">－</button><button class="btn sm" id="mzr">${t('Sıfırla')}</button>
+    <button class="btn sm ${mapView.editing ? 'primary' : ''}" id="medit">${mapView.editing ? t('Konum düzenleme açık') : t('Konumları düzenle')}</button>
+    <span class="legend">${S.lines.map(L => `<span class="lg" data-line="${L.id}"><i style="background:${lineColor(L)}"></i>${h(lname(L))}</span>`).join('')}</span></div>
+    <div id="mapHost"></div><div id="mapPop" class="map-pop hidden"></div></div>`;
+  const host = $('#mapHost', container);
+  const draw = () => { host.innerHTML = mapHtml(); bind(); };
+  const pop = $('#mapPop', container);
+  const showPop = (pid, ev) => {
+    const p = placeById(pid); const d0 = todayISO();
+    const ps = S.persons.filter(q => q.homeId === pid || (p.type === 'work' && q.workId === pid));
+    const ins = ps.filter(personInService); const atWork = ins.filter(q => stWork(groupById(q.group), d0)).length;
+    const Ls = S.lines.filter(L => L.stops.includes(pid) || L.endA === pid);
+    pop.innerHTML = `<div class="row between"><b dir="auto">${h(p.name)}</b><button class="btn sm" id="popX">✕</button></div>
+      <div class="small muted">${p.type === 'work' ? t('İşyeri') : t('Ev')} · ${Ls.map(L => h(lname(L))).join(', ') || t('hatta bağlı değil')}${placeExempt(p) && p.type !== 'work' ? ' · <span class="badge warn">' + t('muaf yer') + '</span>' : ''}</div>
+      <div class="kv" style="margin:6px 0"><b>${t('Serviste')}</b><span>${ins.length} (${t('işte')} ${atWork} / ${t('evde')} ${ins.length - atWork})</span><b>${t('Muaf / pasif')}</b><span>${ps.length - ins.length}</span></div>
+      <div class="pill-list">${ins.slice(0, 12).map(q => `<span class="pill" data-pp="${q.id}" title="${t('Düzenle')}"><span dir="auto">${h(q.name)}</span><span class="muted">${h(q.group)}</span></span>`).join('')}${ins.length > 12 ? `<span class="pill">+${ins.length - 12}</span>` : ''}</div>
+      <div class="row" style="margin-top:8px;gap:6px">
+        <button class="btn sm primary" id="popAdd">+ ${t('Kişi ekle')}</button>
+        <button class="btn sm" id="popList">${t('Kişileri gör')}</button>
+        ${Ls[0] ? `<button class="btn sm" id="popLine">${t('Hattı aç')}</button>` : ''}
+        <button class="btn sm" id="popPlace">${t('Yeri düzenle')}</button></div>`;
+    pop.classList.remove('hidden');
+    const r = host.getBoundingClientRect(); let px = ev.clientX - r.left + 12, py = ev.clientY - r.top + 12; if (px + 330 > r.width) px = Math.max(0, ev.clientX - r.left - 340); if (py + 240 > r.height) py = Math.max(0, py - 250); pop.style.left = px + 'px'; pop.style.top = py + 'px';
+    $('#popX', pop).onclick = () => pop.classList.add('hidden');
+    $('#popAdd', pop).onclick = () => editPerson(null, { homeId: p.type === 'work' ? '' : pid, workId: p.type === 'work' ? pid : '', lineId: (Ls[0] || {}).id || '' });
+    $('#popList', pop).onclick = () => { pf = { q: '', group: '', line: '', status: '', work: '', place: pid }; go('persons'); };
+    const pl = $('#popLine', pop); if (pl) pl.onclick = () => { selLine = Ls[0].id; go('lines'); };
+    $('#popPlace', pop).onclick = () => editPlace(pid);
+    $$('[data-pp]', pop).forEach(el => el.onclick = () => editPerson(el.dataset.pp));
+  };
+  let drag = null, panning = null;
+  const svgPt = (svg, ev) => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const m = svg.getScreenCTM().inverse(); const q = pt.matrixTransform(m); return [q.x, q.y]; };
+  function bind() {
+    const svg = $('#mapSvg', host);
+    $$('.mstop', svg).forEach(g => {
+      g.addEventListener('mousedown', ev => { if (!mapView.editing) return; ev.stopPropagation(); drag = { id: g.dataset.place, g }; });
+      g.addEventListener('click', ev => { if (mapView.editing) return; ev.stopPropagation(); showPop(g.dataset.place, ev); });
+    });
+    $$('[data-line]', svg).forEach(el => el.addEventListener('click', ev => { ev.stopPropagation(); selLine = el.dataset.line; go('lines'); }));
+    svg.addEventListener('mousedown', ev => { panning = { x: ev.clientX, y: ev.clientY, vx: mapView.x, vy: mapView.y, scale: mapView.w / svg.getBoundingClientRect().width }; });
+    svg.addEventListener('mousemove', ev => {
+      if (drag) { const [x, y] = svgPt(svg, ev); drag.g.setAttribute('transform', `translate(${x},${y})`); drag.xy = [x, y]; return; }
+      if (panning) { mapView.x = panning.vx - (ev.clientX - panning.x) * panning.scale; mapView.y = panning.vy - (ev.clientY - panning.y) * panning.scale; svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }
+    });
+    const up = () => { if (drag && drag.xy) { const p = placeById(drag.id); const [lon, lat] = unproj(drag.xy[0], drag.xy[1]); p.lon = +lon.toFixed(4); p.lat = +lat.toFixed(4); save(); draw(); } drag = null; panning = null; };
+    svg.addEventListener('mouseup', up); svg.addEventListener('mouseleave', up);
+    svg.addEventListener('wheel', ev => { ev.preventDefault(); const f = ev.deltaY > 0 ? 1.15 : 1 / 1.15; const [mx, my] = svgPt(svg, ev); mapView.x = mx - (mx - mapView.x) * f; mapView.y = my - (my - mapView.y) * f; mapView.w *= f; mapView.h *= f; svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }, { passive: false });
+    svg.addEventListener('click', () => pop.classList.add('hidden'));
+  }
+  const zoom = f => { const cx = mapView.x + mapView.w / 2, cy = mapView.y + mapView.h / 2; mapView.w *= f; mapView.h *= f; mapView.x = cx - mapView.w / 2; mapView.y = cy - mapView.h / 2; $('#mapSvg', host).setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); };
+  $('#mzi', container).onclick = () => zoom(1 / 1.3); $('#mzo', container).onclick = () => zoom(1.3);
+  $('#mzr', container).onclick = () => { fitMap(); draw(); };
+  $('#medit', container).onclick = () => { mapView.editing = !mapView.editing; mountMap(container); if (mapView.editing) toast(t('Durakları sürükleyerek yerini değiştirebilirsiniz')); };
+  $$('.lg', container).forEach(el => el.onclick = () => { selLine = el.dataset.line; go('lines'); });
+  draw();
+}
+function fitMap() {
+  const ids = new Set(); S.lines.forEach(L => { ids.add(L.endA); L.stops.forEach(s => { const pl = placeById(s); if (pl && !placeExempt(pl)) ids.add(s); }); });
+  const xs = [], ys = []; ids.forEach(id => { const p = placeById(id); if (!p) return; const c = placeCoord(p); const [x, y] = proj(c.lon, c.lat); xs.push(x); ys.push(y); });
+  if (!xs.length) { mapView = { ...mapView, x: 0, y: 0, w: MAP.W, h: MAP.H }; return; }
+  const pad = 40; const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+  let w = x1 - x0, hh = y1 - y0; const host = document.getElementById('mapHost'); const ratio = host && host.clientHeight ? host.clientWidth / host.clientHeight : 2; if (w / hh < ratio) w = hh * ratio; else hh = w / ratio;
+  mapView = { ...mapView, x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - hh / 2, w, h: hh };
+}
+let mapFitted = false;
 
 // ================= SAYFALAR =================
 function renderDash(m) {
-  const t = todayISO();
+  const d0 = todayISO();
   const inService = S.persons.filter(personInService);
   const exempt = S.persons.filter(p => p.active !== false && personExempt(p));
   const inactive = S.persons.filter(p => p.active === false);
-  const team = driverTeamAt(t);
-  const nextDates = upcomingChangeDates(6);
+  const team = driverTeamAt(d0); const nextDates = upcomingChangeDates(6);
   m.innerHTML = `
-  <h1>Genel Durum <span class="muted small">— ${fmt(t)} ${dayName(t)}</span></h1>
+  <h1>${t('Genel Durum')} <span class="muted small">— ${fmt(d0)} ${dayName(d0)}</span></h1>
+  <div class="card tight" id="mapCard"></div>
   <div class="grid c4">
-    <div class="card stat"><div class="v">${inService.length}</div><div class="l">Serviste olan kişi</div></div>
-    <div class="card stat"><div class="v">${exempt.length}</div><div class="l">Muaf (servis dışı)</div></div>
-    <div class="card stat"><div class="v">${inactive.length}</div><div class="l">Sistemden çıkarılmış</div></div>
-    <div class="card stat"><div class="v">${S.lines.length}</div><div class="l">Hat</div></div>
+    <div class="card stat"><div class="v">${inService.length}</div><div class="l">${t('Serviste olan kişi')}</div></div>
+    <div class="card stat"><div class="v">${exempt.length}</div><div class="l">${t('Muaf (servis dışı)')}</div></div>
+    <div class="card stat"><div class="v">${inactive.length}</div><div class="l">${t('Sistemden çıkarılmış')}</div></div>
+    <div class="card stat"><div class="v">${S.lines.length}</div><div class="l">${t('Hat')}</div></div>
   </div>
   <div class="grid c2">
-    <div class="card"><h2>Gruplar – bugün</h2>
-      <table><tr><th>Grup</th><th>Durum</th><th>Kişi</th><th>Sonraki değişim</th><th>Kalan</th></tr>
-      ${S.groups.map(g => { const st = groupStatusAt(g, t); const nx = groupNextChange(g); const cnt = inService.filter(p => p.group === g.id).length; return `<tr><td><b>${h(g.name)}</b></td><td>${st === 'work' ? '<span class="badge ok">İşte (fabrikada)</span>' : '<span class="badge gray">Evde</span>'}</td><td>${cnt}</td><td>${nx ? fmt(nx) + ' ' + dayName(nx) : '<span class="badge warn">tarih girilmedi</span>'}</td><td>${nx ? diffDays(t, nx) + ' gün' : ''}</td></tr>`; }).join('')}
+    <div class="card"><h2>${t('Gruplar – bugün')}</h2>
+      <table><tr><th>${t('Grup')}</th><th>${t('Durum')}</th><th>${t('Kişi')}</th><th>${t('Sonraki değişim')}</th><th>${t('Kalan')}</th></tr>
+      ${S.groups.map(g => { const st = groupStatusAt(g, d0); const nx = groupNextChange(g); const cnt = inService.filter(p => p.group === g.id).length; return `<tr><td><b>${h(g.name)}</b></td><td>${st === 'work' ? '<span class="badge ok">' + t('İşte (fabrikada)') + '</span>' : '<span class="badge gray">' + t('Evde') + '</span>'}</td><td>${cnt}</td><td>${nx ? fmt(nx) + ' ' + dayName(nx) : '<span class="badge warn">' + t('tarih girilmedi') + '</span>'}</td><td>${nx ? diffDays(d0, nx) + ' ' + t('gün') : ''}</td></tr>`; }).join('')}
       </table>
-      <p class="small muted">Değişim tarihlerini <a href="#" data-go="shifts">Vardiya &amp; Değişim</a> sayfasından girin.</p>
+      <p class="small muted">${t('Değişim tarihlerini')} <a href="#" data-go="shifts">${t('Vardiya & Değişim')}</a> ${t('sayfasından girin.')}</p>
     </div>
-    <div class="card"><h2>Şoförler – bugün</h2>
-      ${S.drivers.map(d => `<div class="drv ${d.team === team ? 'on' : 'off'}"><span class="nm" dir="auto">${h(d.name)}</span><span class="badge ${d.team === team ? 'ok' : 'gray'}">${d.team === team ? 'Aktif (nöbette)' : 'İstirahatte'}</span><span class="small muted">Ekip ${d.team}</span></div>`).join('')}
-      <div class="small muted">Sonraki şoför değişimi: <b>${driverNextChange() ? fmt(driverNextChange()) : 'tarih girilmedi'}</b></div>
+    <div class="card"><h2>${t('Şoförler – bugün')}</h2>
+      ${S.drivers.map(d => `<div class="drv ${d.team === team ? 'on' : 'off'}"><span class="nm" dir="auto">${h(d.name)}</span><span class="badge ${d.team === team ? 'ok' : 'gray'}">${d.team === team ? t('Aktif (nöbette)') : t('İstirahatte')}</span><span class="small muted">${t('Ekip')} ${d.team}</span></div>`).join('')}
+      <div class="small muted">${t('Sonraki şoför değişimi')}: <b>${driverNextChange() ? fmt(driverNextChange()) : t('tarih girilmedi')}</b></div>
     </div>
   </div>
   <div class="grid c2">
-    <div class="card"><h2>Yaklaşan değişim günleri</h2>
-      ${nextDates.length ? `<div class="timeline">${nextDates.map(d => `<div class="tl ${d === t ? 'today' : ''}"><b>${fmt(d)}</b>${dayName(d)}<br><span class="muted">${changesOn(d).map(g => g.name).join(', ')}</span></div>`).join('')}</div>` : '<p class="muted">Henüz değişim tarihi girilmedi.</p>'}
-      <p><button class="btn primary" data-go="plan">Sefer planını aç</button></p>
+    <div class="card"><h2>${t('Yaklaşan değişim günleri')}</h2>
+      ${nextDates.length ? `<div class="timeline">${nextDates.map(d => `<div class="tl ${d === d0 ? 'today' : ''}"><b>${fmt(d)}</b>${dayName(d)}<br><span class="muted">${changesOn(d).map(g => g.name).join(', ')}</span></div>`).join('')}</div>` : `<p class="muted">${t('Henüz değişim tarihi girilmedi.')}</p>`}
+      <p><button class="btn primary" data-go="plan">${t('Sefer planını aç')}</button></p>
     </div>
-    <div class="card"><h2>Hatlar</h2>
-      <table><tr><th>Hat</th><th>Durak</th><th>Kişi (serviste)</th><th>İşte / Evde</th></tr>
-      ${S.lines.map(L => { const ps = inService.filter(p => p.lineId === L.id); const w = ps.filter(p => { const g = groupById(p.group); return g && groupStatusAt(g, t) === 'work'; }).length; return `<tr><td>${h(L.name)}</td><td>${L.stops.length}</td><td>${ps.length}</td><td>${w} / ${ps.length - w}</td></tr>`; }).join('')}
+    <div class="card"><h2>${t('Hatlar')}</h2>
+      <table><tr><th>${t('Hat')}</th><th>${t('Durak')}</th><th>${t('Kişi (serviste)')}</th><th>${t('İşte / Evde')}</th></tr>
+      ${S.lines.map(L => { const ps = inService.filter(p => p.lineId === L.id); const w = ps.filter(p => stWork(groupById(p.group), d0)).length; return `<tr><td><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))}</td><td>${L.stops.length}</td><td>${ps.length}</td><td>${w} / ${ps.length - w}</td></tr>`; }).join('')}
       </table>
     </div>
   </div>`;
+  if (!mapFitted) { mountMap($('#mapCard', m)); fitMap(); mapFitted = true; }
+  mountMap($('#mapCard', m));
   $$('[data-go]', m).forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.go); });
 }
 
 // ---------- Kişiler ----------
-let pf = { q: '', group: '', line: '', status: '', work: '' };
+let pf = { q: '', group: '', line: '', status: '', work: '', place: '' };
 function renderPersons(m) {
-  m.innerHTML = `<h1>Kişiler</h1>
+  m.innerHTML = `<h1>${t('Kişiler')}</h1>
   <div class="toolbar">
-    <input type="search" id="pq" placeholder="Ad, lakap, sicil, yer ara…" value="${h(pf.q)}">
-    <select id="pg"><option value="">Tüm gruplar</option>${S.groups.map(g => `<option ${pf.group === g.id ? 'selected' : ''}>${h(g.id)}</option>`).join('')}<option value="-" ${pf.group === '-' ? 'selected' : ''}>Grupsuz</option></select>
-    <select id="pl">${opt(S.lines, pf.line, x => x.name, x => x.id, 'Tüm hatlar')}</select>
-    <select id="pw">${opt(workPlaces(), pf.work, x => x.name, x => x.id, 'Tüm işyerleri')}</select>
-    <select id="ps"><option value="">Tüm durumlar</option><option value="service" ${pf.status === 'service' ? 'selected' : ''}>Serviste</option><option value="exempt" ${pf.status === 'exempt' ? 'selected' : ''}>Muaf</option><option value="inactive" ${pf.status === 'inactive' ? 'selected' : ''}>Sistemden çıkarılmış</option></select>
+    <input type="search" id="pq" placeholder="${t('Ad, lakap, sicil, yer ara…')}" value="${h(pf.q)}">
+    <select id="pg"><option value="">${t('Tüm gruplar')}</option>${S.groups.map(g => `<option ${pf.group === g.id ? 'selected' : ''}>${h(g.id)}</option>`).join('')}<option value="-" ${pf.group === '-' ? 'selected' : ''}>${t('Grupsuz')}</option></select>
+    <select id="pl">${opt(S.lines, pf.line, x => lname(x), x => x.id, t('Tüm hatlar'))}</select>
+    <select id="pw">${opt(workPlaces(), pf.work, x => x.name, x => x.id, t('Tüm işyerleri'))}</select>
+    <select id="ps"><option value="">${t('Tüm durumlar')}</option><option value="service" ${pf.status === 'service' ? 'selected' : ''}>${t('Serviste')}</option><option value="exempt" ${pf.status === 'exempt' ? 'selected' : ''}>${t('Muaf')}</option><option value="inactive" ${pf.status === 'inactive' ? 'selected' : ''}>${t('Sistemden çıkarılmış')}</option></select>
+    ${pf.place ? `<span class="pill">${t('Yer')}: <span dir="auto">${h(placeName(pf.place))}</span><button id="pplx">✕</button></span>` : ''}
     <span style="flex:1"></span>
-    <button class="btn" id="pImport">Excel'den al</button>
-    <button class="btn" id="pExport">Excel'e ver</button>
-    <button class="btn primary" id="pAdd">+ Kişi ekle</button>
+    <button class="btn" id="pImport">${t("Excel'den al")}</button>
+    <button class="btn" id="pExport">${t("Excel'e ver")}</button>
+    <button class="btn primary" id="pAdd">+ ${t('Kişi ekle')}</button>
   </div>
   <div class="card tight"><div class="tbl-wrap"><table id="ptbl"></table></div></div>`;
   const draw = () => {
@@ -240,6 +363,7 @@ function renderPersons(m) {
       if (pf.group === '-' && p.group) return false;
       if (pf.line && p.lineId !== pf.line) return false;
       if (pf.work && p.workId !== pf.work) return false;
+      if (pf.place && p.homeId !== pf.place && p.workId !== pf.place) return false;
       const ex = personExempt(p), ia = p.active === false;
       if (pf.status === 'service' && (ex || ia)) return false;
       if (pf.status === 'exempt' && (!ex || ia)) return false;
@@ -248,14 +372,14 @@ function renderPersons(m) {
       return true;
     });
     list.sort((a, b) => (Number(a.seq) || 9999) - (Number(b.seq) || 9999));
-    const t = todayISO();
-    $('#ptbl').innerHTML = `<tr><th>#</th><th>Sicil</th><th>Ad Soyad</th><th>Lakap</th><th>Unvan</th><th>Grup</th><th>Bugün</th><th>Ev (durak)</th><th>İşyeri</th><th>Hat</th><th>Durum</th><th></th></tr>` +
+    const d0 = todayISO();
+    $('#ptbl').innerHTML = `<tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Lakap')}</th><th>${t('Unvan')}</th><th>${t('Grup')}</th><th>${t('Bugün')}</th><th>${t('Ev (durak)')}</th><th>${t('İşyeri')}</th><th>${t('Hat')}</th><th>${t('Durum')}</th><th></th></tr>` +
       list.map(p => {
-        const g = groupById(p.group); const st = g ? groupStatusAt(g, t) : '';
+        const g = groupById(p.group); const st = g ? groupStatusAt(g, d0) : '';
         const ex = personExempt(p), ia = p.active === false;
-        const status = ia ? '<span class="badge bad">Çıkarıldı</span>' : ex ? `<span class="badge warn">Muaf${p.exempt === true ? ' (kişi)' : ''}</span>` : '<span class="badge ok">Serviste</span>';
-        return `<tr data-id="${p.id}"><td class="num">${h(p.seq)}</td><td>${h(p.regNo)}</td><td dir="auto"><b>${h(p.name)}</b></td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group) || '—'}</td><td>${st ? (st === 'work' ? '<span class="badge ok">İşte</span>' : '<span class="badge gray">Evde</span>') : ''}</td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${status}</td><td><button class="btn sm" data-edit="${p.id}">Düzenle</button></td></tr>`;
-      }).join('') + (list.length ? '' : '<tr><td colspan="12" class="muted">Kayıt yok</td></tr>');
+        const status = ia ? `<span class="badge bad">${t('Çıkarıldı')}</span>` : ex ? `<span class="badge warn">${t('Muaf')}${p.exempt === true ? ' (' + t('kişi') + ')' : ''}</span>` : `<span class="badge ok">${t('Serviste')}</span>`;
+        return `<tr><td class="num">${h(p.seq)}</td><td>${h(p.regNo)}</td><td dir="auto"><b>${h(p.name)}</b></td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group) || '—'}</td><td>${statusBadge(st)}</td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${status}</td><td><button class="btn sm" data-edit="${p.id}">${t('Düzenle')}</button></td></tr>`;
+      }).join('') + (list.length ? '' : `<tr><td colspan="12" class="muted">${t('Kayıt yok')}</td></tr>`);
     $$('[data-edit]', m).forEach(b => b.onclick = () => editPerson(b.dataset.edit));
   };
   draw();
@@ -264,59 +388,60 @@ function renderPersons(m) {
   $('#pl').onchange = e => { pf.line = e.target.value; draw(); };
   $('#pw').onchange = e => { pf.work = e.target.value; draw(); };
   $('#ps').onchange = e => { pf.status = e.target.value; draw(); };
+  const px = $('#pplx'); if (px) px.onclick = () => { pf.place = ''; render(); };
   $('#pAdd').onclick = () => editPerson(null);
   $('#pExport').onclick = () => exportPersonsExcel();
   $('#pImport').onclick = () => importPersonsExcel();
 }
-function editPerson(id) {
-  const p = id ? S.persons.find(x => x.id === id) : { id: uid('u'), seq: (Math.max(0, ...S.persons.map(x => Number(x.seq) || 0)) + 1), regNo: '', title: '', name: '', mother: '', nickname: '', group: '', homeId: '', workId: '', lineId: '', exempt: null, active: true, notes: '' };
-  modal(`<h2>${id ? 'Kişiyi düzenle' : 'Yeni kişi'}</h2>
+function editPerson(id, preset) {
+  const p = id ? S.persons.find(x => x.id === id) : Object.assign({ id: uid('u'), seq: (Math.max(0, ...S.persons.map(x => Number(x.seq) || 0)) + 1), regNo: '', title: '', name: '', mother: '', nickname: '', group: '', homeId: '', workId: '', lineId: '', exempt: null, active: true, notes: '' }, preset || {});
+  modal(`<h2>${id ? t('Kişiyi düzenle') : t('Yeni kişi')}</h2>
   <div class="grid c3">
-    <label class="f">Sıra no<input id="f_seq" value="${h(p.seq)}"></label>
-    <label class="f">Sicil no<input id="f_reg" value="${h(p.regNo)}"></label>
-    <label class="f">Grup<select id="f_grp"><option value="">— Grupsuz —</option>${S.groups.map(g => `<option ${p.group === g.id ? 'selected' : ''}>${h(g.id)}</option>`).join('')}</select></label>
+    <label class="f">${t('Sıra no')}<input id="f_seq" value="${h(p.seq)}"></label>
+    <label class="f">${t('Sicil no')}<input id="f_reg" value="${h(p.regNo)}"></label>
+    <label class="f">${t('Grup')}<select id="f_grp"><option value="">— ${t('Grupsuz')} —</option>${S.groups.map(g => `<option ${p.group === g.id ? 'selected' : ''}>${h(g.id)}</option>`).join('')}</select></label>
   </div>
   <div class="grid c2">
-    <label class="f">Ad Soyad<input id="f_name" dir="auto" value="${h(p.name)}"></label>
-    <label class="f">Lakap<input id="f_nick" dir="auto" value="${h(p.nickname)}"></label>
-    <label class="f">Unvan<input id="f_title" dir="auto" value="${h(p.title)}"></label>
-    <label class="f">Anne adı<input id="f_mother" dir="auto" value="${h(p.mother)}"></label>
-    <label class="f">İşyeri<select id="f_work">${opt(workPlaces(), p.workId, x => x.name, x => x.id, '— seçiniz —')}</select></label>
-    <label class="f">Hat<select id="f_line">${opt(S.lines, p.lineId, x => x.name, x => x.id, '— seçiniz —')}</select></label>
-    <label class="f">Ev (oturduğu yer / durak)<select id="f_home">${opt(homePlaces().slice().sort((a, b) => sortTR(a.name, b.name)), p.homeId, x => x.name + (placeExempt(x) ? '  (muaf yer)' : ''), x => x.id, '— seçiniz —')}</select></label>
-    <label class="f">Muafiyet<select id="f_ex"><option value="" ${p.exempt == null ? 'selected' : ''}>Yere göre (otomatik)</option><option value="1" ${p.exempt === true ? 'selected' : ''}>Muaf (servis dışı)</option><option value="0" ${p.exempt === false ? 'selected' : ''}>Muaf değil (servise dahil)</option></select></label>
+    <label class="f">${t('Ad Soyad')}<input id="f_name" dir="auto" value="${h(p.name)}"></label>
+    <label class="f">${t('Lakap')}<input id="f_nick" dir="auto" value="${h(p.nickname)}"></label>
+    <label class="f">${t('Unvan')}<input id="f_title" dir="auto" value="${h(p.title)}"></label>
+    <label class="f">${t('Anne adı')}<input id="f_mother" dir="auto" value="${h(p.mother)}"></label>
+    <label class="f">${t('İşyeri')}<select id="f_work">${opt(workPlaces(), p.workId, x => x.name, x => x.id, t('— seçiniz —'))}</select></label>
+    <label class="f">${t('Hat')}<select id="f_line">${opt(S.lines, p.lineId, x => lname(x), x => x.id, t('— seçiniz —'))}</select></label>
+    <label class="f">${t('Ev (oturduğu yer / durak)')}<select id="f_home">${opt(homePlaces().slice().sort((a, b) => sortTR(a.name, b.name)), p.homeId, x => x.name + (placeExempt(x) ? '  (' + t('muaf yer') + ')' : ''), x => x.id, t('— seçiniz —'))}</select></label>
+    <label class="f">${t('Muafiyet')}<select id="f_ex"><option value="" ${p.exempt == null ? 'selected' : ''}>${t('Yere göre (otomatik)')}</option><option value="1" ${p.exempt === true ? 'selected' : ''}>${t('Muaf (servis dışı)')}</option><option value="0" ${p.exempt === false ? 'selected' : ''}>${t('Muaf değil (servise dahil)')}</option></select></label>
   </div>
-  <label class="f">Not<textarea id="f_notes" rows="2" dir="auto">${h(p.notes)}</textarea></label>
-  <label class="chk" style="margin-top:8px"><input type="checkbox" id="f_active" ${p.active !== false ? 'checked' : ''}> Sistemde aktif (işareti kaldırırsanız kişi sistemden çıkarılır, kaydı kalır)</label>
-  <div class="actions">${id ? '<button class="btn danger" id="f_del">Kaydı sil</button>' : ''}<span style="flex:1"></span><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="f_save">Kaydet</button></div>`,
+  <label class="f">${t('Not')}<textarea id="f_notes" rows="2" dir="auto">${h(p.notes)}</textarea></label>
+  <label class="chk" style="margin-top:8px"><input type="checkbox" id="f_active" ${p.active !== false ? 'checked' : ''}> ${t('Sistemde aktif (işareti kaldırırsanız kişi sistemden çıkarılır, kaydı kalır)')}</label>
+  <div class="actions">${id ? `<button class="btn danger" id="f_del">${t('Kaydı sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="f_save">${t('Kaydet')}</button></div>`,
     (r, close) => {
       $('#f_save', r).onclick = () => {
-        const name = $('#f_name', r).value.trim(); if (!name) return toast('Ad gerekli', true);
+        const name = $('#f_name', r).value.trim(); if (!name) return toast(t('Ad gerekli'), true);
         Object.assign(p, { seq: $('#f_seq', r).value.trim(), regNo: $('#f_reg', r).value.trim(), group: $('#f_grp', r).value, name, nickname: $('#f_nick', r).value.trim(), title: $('#f_title', r).value.trim(), mother: $('#f_mother', r).value.trim(), workId: $('#f_work', r).value, lineId: $('#f_line', r).value, homeId: $('#f_home', r).value, notes: $('#f_notes', r).value.trim(), active: $('#f_active', r).checked });
         const ex = $('#f_ex', r).value; p.exempt = ex === '' ? null : ex === '1';
         if (!id) S.persons.push(p);
-        // ev yeri hattın duraklarında yoksa ekle
         const L = lineById(p.lineId); if (L && p.homeId && !L.stops.includes(p.homeId)) L.stops.push(p.homeId);
-        save(); close(); render(); toast('Kaydedildi');
+        save(); close(); render(); toast(t('Kaydedildi'));
       };
-      if (id) $('#f_del', r).onclick = () => confirmDlg('Bu kişi kalıcı olarak silinsin mi?', () => { S.persons = S.persons.filter(x => x.id !== id); save(); close(); render(); });
+      if (id) $('#f_del', r).onclick = () => confirmDlg(t('Bu kişi kalıcı olarak silinsin mi?'), () => { S.persons = S.persons.filter(x => x.id !== id); save(); close(); render(); });
     });
 }
 
 // ---------- Yerler ----------
 function renderPlaces(m) {
   const list = S.places.slice().sort((a, b) => (a.type === 'work' ? 0 : 1) - (b.type === 'work' ? 0 : 1) || sortTR(a.name, b.name));
-  m.innerHTML = `<h1>Yerleşim Yerleri</h1>
-  <p class="muted">İşyerleri: <b>${workPlaces().map(p => h(p.name)).join(', ')}</b>. Geri kalan yerler evdir. Muaf yerler (ör. Halep, Cerablus, Derkuş, Tel Rıfat, Sermede, Harim, Cinderes) sistemden ayrıdır; buradaki kişiler servise dahil edilmez (kişi bazında aktif edilebilir).</p>
-  <div class="toolbar"><input type="search" id="plq" placeholder="Yer ara…"><span style="flex:1"></span><button class="btn primary" id="plAdd">+ Yer ekle</button></div>
+  m.innerHTML = `<h1>${t('Yerleşim Yerleri')}</h1>
+  <p class="muted">${t('İşyerleri')}: <b>${workPlaces().map(p => h(p.name)).join(', ')}</b>. ${t('Geri kalan yerler evdir. Muaf yerler (ör. Halep, Cerablus, Derkuş, Tel Rıfat, Sermede, Harim, Cinderes) sistemden ayrıdır; buradaki kişiler servise dahil edilmez (kişi bazında aktif edilebilir).')}</p>
+  <div class="toolbar"><input type="search" id="plq" placeholder="${t('Yer ara…')}"><span style="flex:1"></span><button class="btn primary" id="plAdd">+ ${t('Yer ekle')}</button></div>
   <div class="card tight"><div class="tbl-wrap"><table id="pltbl"></table></div></div>`;
   const draw = () => {
     const q = ($('#plq').value || '').toLowerCase();
-    $('#pltbl').innerHTML = `<tr><th>Yer</th><th>Tür</th><th>Muafiyet</th><th>Kişi</th><th>Hatlar</th><th></th></tr>` + list.filter(p => p.name.toLowerCase().includes(q)).map(p => {
+    $('#pltbl').innerHTML = `<tr><th>${t('Yer')}</th><th>${t('Tür')}</th><th>${t('Muafiyet')}</th><th>${t('Kişi')}</th><th>${t('Hatlar')}</th><th>${t('Harita')}</th><th></th></tr>` + list.filter(p => p.name.toLowerCase().includes(q)).map(p => {
       const cnt = S.persons.filter(x => x.homeId === p.id || x.workId === p.id).length;
-      const ls = S.lines.filter(L => L.stops.includes(p.id) || L.endA === p.id).map(L => L.name).join(', ');
-      const ex = p.type === 'work' ? '' : placeExempt(p) ? `<span class="badge warn">Muaf${p.exempt == null ? ' (otomatik)' : ''}</span>` : p.exempt === false ? '<span class="badge ok">Dahil (zorla)</span>' : '<span class="badge ok">Dahil</span>';
-      return `<tr><td dir="auto"><b>${h(p.name)}</b></td><td>${p.type === 'work' ? '<span class="badge info">İşyeri</span>' : 'Ev'}</td><td>${ex}</td><td>${cnt}</td><td>${h(ls)}</td><td><button class="btn sm" data-e="${p.id}">Düzenle</button></td></tr>`;
+      const ls = S.lines.filter(L => L.stops.includes(p.id) || L.endA === p.id).map(L => lname(L)).join(', ');
+      const ex = p.type === 'work' ? '' : placeExempt(p) ? `<span class="badge warn">${t('Muaf')}${p.exempt == null ? ' (' + t('otomatik') + ')' : ''}</span>` : p.exempt === false ? `<span class="badge ok">${t('Dahil (zorla)')}</span>` : `<span class="badge ok">${t('Dahil')}</span>`;
+      const c = placeCoord(p);
+      return `<tr><td dir="auto"><b>${h(p.name)}</b></td><td>${p.type === 'work' ? `<span class="badge info">${t('İşyeri')}</span>` : t('Ev')}</td><td>${ex}</td><td>${cnt}</td><td>${h(ls)}</td><td class="small muted">${c.unknown ? `<span class="badge warn">${t('konum bilinmiyor')}</span>` : c.auto ? t('otomatik') : t('elle')}</td><td><button class="btn sm" data-e="${p.id}">${t('Düzenle')}</button></td></tr>`;
     }).join('');
     $$('[data-e]', m).forEach(b => b.onclick = () => editPlace(b.dataset.e));
   };
@@ -324,22 +449,24 @@ function renderPlaces(m) {
 }
 function editPlace(id) {
   const p = id ? placeById(id) : { id: uid('p'), name: '', type: 'home', exempt: null };
-  modal(`<h2>${id ? 'Yeri düzenle' : 'Yeni yer'}</h2>
+  const c = placeCoord(p);
+  modal(`<h2>${id ? t('Yeri düzenle') : t('Yeni yer')}</h2>
   <div class="grid c2">
-    <label class="f">Yer adı<input id="g_name" dir="auto" value="${h(p.name)}"></label>
-    <label class="f">Tür<select id="g_type"><option value="home" ${p.type !== 'work' ? 'selected' : ''}>Ev (yerleşim)</option><option value="work" ${p.type === 'work' ? 'selected' : ''}>İşyeri</option></select></label>
-    <label class="f">Muafiyet<select id="g_ex"><option value="" ${p.exempt == null ? 'selected' : ''}>Otomatik (anahtar kelimeye göre)</option><option value="1" ${p.exempt === true ? 'selected' : ''}>Muaf (sistem dışı)</option><option value="0" ${p.exempt === false ? 'selected' : ''}>Dahil</option></select></label>
+    <label class="f">${t('Yer adı')}<input id="g_name" dir="auto" value="${h(p.name)}"></label>
+    <label class="f">${t('Tür')}<select id="g_type"><option value="home" ${p.type !== 'work' ? 'selected' : ''}>${t('Ev (yerleşim)')}</option><option value="work" ${p.type === 'work' ? 'selected' : ''}>${t('İşyeri')}</option></select></label>
+    <label class="f">${t('Muafiyet')}<select id="g_ex"><option value="" ${p.exempt == null ? 'selected' : ''}>${t('Otomatik (anahtar kelimeye göre)')}</option><option value="1" ${p.exempt === true ? 'selected' : ''}>${t('Muaf (sistem dışı)')}</option><option value="0" ${p.exempt === false ? 'selected' : ''}>${t('Dahil')}</option></select></label>
+    <label class="f">${t('Harita konumu (enlem, boylam)')}<div class="row" style="gap:4px"><input id="g_lat" style="width:110px" placeholder="${t('enlem')}" value="${p.lat != null ? p.lat : ''}"><input id="g_lon" style="width:110px" placeholder="${t('boylam')}" value="${p.lon != null ? p.lon : ''}"></div><span class="small muted">${t('Boş bırakılırsa otomatik')}: ${c.lat.toFixed(3)}, ${c.lon.toFixed(3)}${c.unknown ? ' (' + t('tahmini') + ')' : ''}</span></label>
   </div>
-  <div class="actions">${id ? '<button class="btn danger" id="g_del">Sil</button>' : ''}<span style="flex:1"></span><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="g_save">Kaydet</button></div>`, (r, close) => {
+  <div class="actions">${id ? `<button class="btn danger" id="g_del">${t('Sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="g_save">${t('Kaydet')}</button></div>`, (r, close) => {
     $('#g_save', r).onclick = () => {
-      const name = $('#g_name', r).value.trim(); if (!name) return toast('Ad gerekli', true);
+      const name = $('#g_name', r).value.trim(); if (!name) return toast(t('Ad gerekli'), true);
       p.name = name; p.type = $('#g_type', r).value; const ex = $('#g_ex', r).value; p.exempt = ex === '' ? null : ex === '1';
+      const la = parseFloat($('#g_lat', r).value), lo = parseFloat($('#g_lon', r).value); if (isFinite(la) && isFinite(lo)) { p.lat = la; p.lon = lo; } else { delete p.lat; delete p.lon; }
       if (!id) S.places.push(p); save(); close(); render();
     };
     if (id) $('#g_del', r).onclick = () => {
-      const used = S.persons.some(x => x.homeId === id || x.workId === id);
-      if (used) return toast('Bu yerde kayıtlı kişiler var; önce onları taşıyın.', true);
-      confirmDlg('Yer silinsin mi?', () => { S.places = S.places.filter(x => x.id !== id); S.lines.forEach(L => { L.stops = L.stops.filter(s => s !== id); }); save(); close(); render(); });
+      if (S.persons.some(x => x.homeId === id || x.workId === id)) return toast(t('Bu yerde kayıtlı kişiler var; önce onları taşıyın.'), true);
+      confirmDlg(t('Yer silinsin mi?'), () => { S.places = S.places.filter(x => x.id !== id); S.lines.forEach(L => { L.stops = L.stops.filter(s => s !== id); }); save(); close(); render(); });
     };
   });
 }
@@ -347,197 +474,192 @@ function editPlace(id) {
 // ---------- Hatlar ----------
 let selLine = '';
 function renderLines(m) {
-  if (!selLine && S.lines[0]) selLine = S.lines[0].id;
+  if (!lineById(selLine) && S.lines[0]) selLine = S.lines[0].id;
   const L = lineById(selLine);
-  m.innerHTML = `<h1>Hatlar &amp; Duraklar</h1>
-  <div class="toolbar"><select id="lsel">${opt(S.lines, selLine)}</select>
-    <button class="btn" id="lEdit" ${L ? '' : 'disabled'}>Hattı düzenle</button>
-    <button class="btn primary" id="lAdd">+ Yeni hat</button></div>
-  ${L ? lineDetail(L) : '<p class="muted">Hat yok.</p>'}`;
+  m.innerHTML = `<h1>${t('Hatlar & Duraklar')}</h1>
+  <div class="toolbar"><select id="lsel">${opt(S.lines, selLine, x => lname(x))}</select>
+    <button class="btn" id="lEdit" ${L ? '' : 'disabled'}>${t('Hattı düzenle')}</button>
+    <button class="btn primary" id="lAdd">+ ${t('Yeni hat')}</button></div>
+  ${L ? lineDetail(L) : `<p class="muted">${t('Hat yok.')}</p>`}`;
   $('#lsel').onchange = e => { selLine = e.target.value; render(); };
   $('#lAdd').onclick = () => editLine(null); $('#lEdit').onclick = () => editLine(L.id);
   if (!L) return;
   $$('[data-up]', m).forEach(b => b.onclick = () => { const i = +b.dataset.up; if (i > 0) { [L.stops[i - 1], L.stops[i]] = [L.stops[i], L.stops[i - 1]]; save(); render(); } });
   $$('[data-down]', m).forEach(b => b.onclick = () => { const i = +b.dataset.down; if (i < L.stops.length - 1) { [L.stops[i + 1], L.stops[i]] = [L.stops[i], L.stops[i + 1]]; save(); render(); } });
-  $$('[data-rm]', m).forEach(b => b.onclick = () => { const sid = b.dataset.rm; const n = S.persons.filter(p => p.lineId === L.id && p.homeId === sid).length; if (n) return toast('Bu durakta ' + n + ' kişi var; önce kişileri başka durağa/hatta alın.', true); L.stops = L.stops.filter(s => s !== sid); save(); render(); });
+  $$('[data-rm]', m).forEach(b => b.onclick = () => { const sid = b.dataset.rm; const n = S.persons.filter(p => p.lineId === L.id && p.homeId === sid).length; if (n) return toast(t('Bu durakta {0} kişi var; önce kişileri başka durağa/hatta alın.', n), true); L.stops = L.stops.filter(s => s !== sid); save(); render(); });
   $$('[data-addp]', m).forEach(b => b.onclick = () => addPersonToStop(L, b.dataset.addp));
-  $$('[data-rmp]', m).forEach(b => b.onclick = () => { const p = S.persons.find(x => x.id === b.dataset.rmp); p.lineId = ''; save(); render(); toast(p.name + ' hattan çıkarıldı'); });
+  $$('[data-rmp]', m).forEach(b => b.onclick = () => { const p = S.persons.find(x => x.id === b.dataset.rmp); p.lineId = ''; save(); render(); toast(p.name + ' — ' + t('hattan çıkarıldı')); });
   $('#stopAdd').onclick = () => { const v = $('#stopSel').value; if (!v) return; if (!L.stops.includes(v)) L.stops.push(v); save(); render(); };
-  $('#stopNew').onclick = () => { modal(`<h2>Yeni durak (yer)</h2><label class="f">Yer adı<input id="ns" dir="auto"></label><div class="actions"><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="nsOk">Ekle</button></div>`, (r, close) => { $('#nsOk', r).onclick = () => { const n = $('#ns', r).value.trim(); if (!n) return; const p = { id: uid('p'), name: n, type: 'home', exempt: null }; S.places.push(p); L.stops.push(p.id); save(); close(); render(); }; }); };
+  $('#stopNew').onclick = () => { modal(`<h2>${t('Yeni durak (yer)')}</h2><label class="f">${t('Yer adı')}<input id="ns" dir="auto"></label><div class="actions">${cancelBtn()}<button class="btn primary" id="nsOk">${t('Ekle')}</button></div>`, (r, close) => { $('#nsOk', r).onclick = () => { const n = $('#ns', r).value.trim(); if (!n) return; const p = { id: uid('p'), name: n, type: 'home', exempt: null }; S.places.push(p); L.stops.push(p.id); save(); close(); render(); }; }); };
 }
 function lineDetail(L) {
-  const t = todayISO();
+  const d0 = todayISO();
   const persons = S.persons.filter(p => p.lineId === L.id);
   const unplaced = persons.filter(p => !L.stops.includes(p.homeId));
-  const row = (p) => { const ex = personExempt(p) || p.active === false; const g = groupById(p.group); const st = g ? groupStatusAt(g, t) : ''; return `<span class="pill" style="${ex ? 'opacity:.55' : ''}" title="${h(p.title)}"><span dir="auto">${h(p.name)}</span> <span class="muted">${h(p.group)}${st ? (st === 'work' ? ' · işte' : ' · evde') : ''}${ex ? ' · muaf/pasif' : ''}</span><button data-rmp="${p.id}" title="Hattan çıkar">✕</button></span>`; };
+  const row = (p) => { const ex = personExempt(p) || p.active === false; const g = groupById(p.group); const st = g ? groupStatusAt(g, d0) : ''; return `<span class="pill" style="${ex ? 'opacity:.55' : ''}" title="${h(p.title)}"><span dir="auto">${h(p.name)}</span> <span class="muted">${h(p.group)}${st ? ' · ' + (st === 'work' ? t('işte') : t('evde')) : ''}${ex ? ' · ' + t('muaf/pasif') : ''}</span><button data-rmp="${p.id}" title="${t('Hattan çıkar')}">✕</button></span>`; };
   return `<div class="grid c2">
   <div>
-    <div class="card"><div class="row between"><h2>${h(L.name)}</h2><span class="muted small">${persons.filter(personInService).length} kişi serviste / ${persons.length} kayıtlı</span></div>
-    <div class="small muted">Başlangıç (işyeri): <b dir="auto">${h(placeName(L.endA))}</b> → duraklar işyerinden uzaklaşma sırasına göre. Sıra, sefer planında ve ekspres otobüs bölmesinde kullanılır.</div></div>
-    <div class="stop work"><span class="n">🏭</span><span class="name" dir="auto">${h(placeName(L.endA))}</span><span class="cnt">işyeri</span></div>
-    ${L.stops.map((sid, i) => { const pl = placeById(sid); const ps = persons.filter(p => p.homeId === sid); return `<div class="stop ${pl && placeExempt(pl) ? 'exempt' : ''}"><span class="n">${i + 1}</span><div class="name"><div dir="auto"><b>${h(placeName(sid))}</b> ${pl && placeExempt(pl) ? '<span class="badge warn">muaf yer</span>' : ''}</div><div class="pill-list" style="margin-top:4px">${ps.map(row).join('')}<button class="btn sm" data-addp="${sid}">+ kişi</button></div></div><span class="cnt">${ps.filter(personInService).length}</span><button class="btn sm" data-up="${i}">▲</button><button class="btn sm" data-down="${i}">▼</button><button class="btn sm danger" data-rm="${sid}">✕</button></div>`; }).join('')}
-    <div class="row" style="margin-top:8px"><select id="stopSel">${opt(homePlaces().filter(p => !L.stops.includes(p.id)).sort((a, b) => sortTR(a.name, b.name)), '', x => x.name, x => x.id, '— mevcut yerden durak ekle —')}</select><button class="btn" id="stopAdd">Durak ekle</button><button class="btn" id="stopNew">+ Yeni yer oluştur</button></div>
+    <div class="card"><div class="row between"><h2><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))}</h2><span class="muted small">${persons.filter(personInService).length} ${t('kişi serviste')} / ${persons.length} ${t('kayıtlı')}</span></div>
+    <div class="small muted">${t('Başlangıç (işyeri)')}: <b dir="auto">${h(placeName(L.endA))}</b> → ${t('duraklar işyerinden uzaklaşma sırasına göre. Sıra, sefer planında ve ekspres otobüs bölmesinde kullanılır.')}</div></div>
+    <div class="stop work"><span class="n">🏭</span><span class="name" dir="auto">${h(placeName(L.endA))}</span><span class="cnt">${t('işyeri')}</span></div>
+    ${L.stops.map((sid, i) => { const pl = placeById(sid); const ps = persons.filter(p => p.homeId === sid); return `<div class="stop ${pl && placeExempt(pl) ? 'exempt' : ''}"><span class="n">${i + 1}</span><div class="name"><div dir="auto"><b>${h(placeName(sid))}</b> ${pl && placeExempt(pl) ? `<span class="badge warn">${t('muaf yer')}</span>` : ''}</div><div class="pill-list" style="margin-top:4px">${ps.map(row).join('')}<button class="btn sm" data-addp="${sid}">+ ${t('kişi')}</button></div></div><span class="cnt">${ps.filter(personInService).length}</span><button class="btn sm" data-up="${i}">▲</button><button class="btn sm" data-down="${i}">▼</button><button class="btn sm danger" data-rm="${sid}">✕</button></div>`; }).join('')}
+    <div class="row" style="margin-top:8px"><select id="stopSel">${opt(homePlaces().filter(p => !L.stops.includes(p.id)).sort((a, b) => sortTR(a.name, b.name)), '', x => x.name, x => x.id, t('— mevcut yerden durak ekle —'))}</select><button class="btn" id="stopAdd">${t('Durak ekle')}</button><button class="btn" id="stopNew">+ ${t('Yeni yer oluştur')}</button></div>
   </div>
   <div>
-    ${unplaced.length ? `<div class="card"><h3>Durağı hatta tanımlı olmayan kişiler</h3><div class="pill-list">${unplaced.map(row).join('')}</div><p class="small muted">Bu kişilerin ev yerini hattın duraklarına ekleyin (yukarıdan "Durak ekle").</p></div>` : ''}
-    <div class="card"><h3>Hat özeti</h3><div class="kv">
-      <b>Durak</b><span>${L.stops.length}</span>
-      <b>İşte olanlar</b><span>${persons.filter(p => personInService(p) && (groupById(p.group) ? groupStatusAt(groupById(p.group), t) : '') === 'work').length}</span>
-      <b>Evde olanlar</b><span>${persons.filter(p => personInService(p) && (groupById(p.group) ? groupStatusAt(groupById(p.group), t) : '') === 'home').length}</span>
-      <b>Muaf / pasif</b><span>${persons.filter(p => !personInService(p)).length}</span></div></div>
+    ${unplaced.length ? `<div class="card"><h3>${t('Durağı hatta tanımlı olmayan kişiler')}</h3><div class="pill-list">${unplaced.map(row).join('')}</div><p class="small muted">${t('Bu kişilerin ev yerini hattın duraklarına ekleyin (yukarıdan "Durak ekle").')}</p></div>` : ''}
+    <div class="card"><h3>${t('Hat özeti')}</h3><div class="kv">
+      <b>${t('Durak')}</b><span>${L.stops.length}</span>
+      <b>${t('İşte olanlar')}</b><span>${persons.filter(p => personInService(p) && stWork(groupById(p.group), d0)).length}</span>
+      <b>${t('Evde olanlar')}</b><span>${persons.filter(p => personInService(p) && groupById(p.group) && !stWork(groupById(p.group), d0)).length}</span>
+      <b>${t('Muaf / pasif')}</b><span>${persons.filter(p => !personInService(p)).length}</span></div></div>
   </div></div>`;
 }
 function editLine(id) {
-  const L = id ? lineById(id) : { id: uid('l'), name: '', endA: (workPlaces()[0] || {}).id || '', stops: [] };
-  modal(`<h2>${id ? 'Hattı düzenle' : 'Yeni hat'}</h2>
-  <div class="grid c2"><label class="f">Hat adı<input id="l_name" dir="auto" value="${h(L.name)}"></label>
-  <label class="f">Başlangıç işyeri<select id="l_endA">${opt(workPlaces(), L.endA)}</select></label></div>
-  <div class="actions">${id ? '<button class="btn danger" id="l_del">Hattı sil</button>' : ''}<span style="flex:1"></span><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="l_save">Kaydet</button></div>`, (r, close) => {
-    $('#l_save', r).onclick = () => { const n = $('#l_name', r).value.trim(); if (!n) return toast('Ad gerekli', true); L.name = n; L.endA = $('#l_endA', r).value; if (!id) { S.lines.push(L); selLine = L.id; } save(); close(); render(); };
-    if (id) $('#l_del', r).onclick = () => confirmDlg('Hat silinsin mi? Hattaki kişiler hatsız kalır.', () => { S.persons.forEach(p => { if (p.lineId === id) p.lineId = ''; }); S.lines = S.lines.filter(x => x.id !== id); selLine = ''; save(); close(); render(); });
+  const L = id ? lineById(id) : { id: uid('l'), name: '', endA: (workPlaces()[0] || {}).id || '', stops: [], color: LINE_COLORS[S.lines.length % LINE_COLORS.length] };
+  modal(`<h2>${id ? t('Hattı düzenle') : t('Yeni hat')}</h2>
+  <div class="grid c3"><label class="f">${t('Hat adı')}<input id="l_name" dir="auto" value="${h(lname(L))}"></label>
+  <label class="f">${t('Başlangıç işyeri')}<select id="l_endA">${opt(workPlaces(), L.endA)}</select></label>
+  <label class="f">${t('Harita rengi')}<input type="color" id="l_color" value="${lineColor(L)}" style="height:34px"></label></div>
+  <div class="actions">${id ? `<button class="btn danger" id="l_del">${t('Hattı sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="l_save">${t('Kaydet')}</button></div>`, (r, close) => {
+    $('#l_save', r).onclick = () => { const n = $('#l_name', r).value.trim(); if (!n) return toast(t('Ad gerekli'), true); L.name = n; L.nameAr = $('#l_nameAr', r).value.trim(); L.nameEn = $('#l_nameEn', r).value.trim(); L.endA = $('#l_endA', r).value; L.color = $('#l_color', r).value; if (!id) { S.lines.push(L); selLine = L.id; } save(); close(); render(); };
+    if (id) $('#l_del', r).onclick = () => confirmDlg(t('Hat silinsin mi? Hattaki kişiler hatsız kalır.'), () => { S.persons.forEach(p => { if (p.lineId === id) p.lineId = ''; }); S.lines = S.lines.filter(x => x.id !== id); selLine = ''; save(); close(); render(); });
   });
 }
 function addPersonToStop(L, stopId) {
   const cands = S.persons.filter(p => !(p.lineId === L.id && p.homeId === stopId)).sort((a, b) => sortTR(a.name, b.name));
-  modal(`<h2>Durağa kişi ekle – <span dir="auto">${h(placeName(stopId))}</span></h2>
-  <input type="search" id="apq" placeholder="Kişi ara…" style="width:100%"><div class="tbl-wrap" style="max-height:50vh;margin-top:8px"><table id="aptbl"></table></div>
-  <p class="small muted">Seçilen kişinin hattı <b>${h(L.name)}</b>, ev durağı <b dir="auto">${h(placeName(stopId))}</b> olarak güncellenir.</p>
-  <div class="actions"><button class="btn" data-close>Kapat</button></div>`, (r, close) => {
-    const draw = () => { const q = $('#apq', r).value.toLowerCase(); $('#aptbl', r).innerHTML = cands.filter(p => (p.name + ' ' + p.nickname + ' ' + placeName(p.homeId)).toLowerCase().includes(q)).slice(0, 60).map(p => `<tr><td dir="auto">${h(p.name)}</td><td>${h(p.group)}</td><td dir="auto" class="muted">${h(placeName(p.homeId))} / ${h(lineName(p.lineId))}</td><td><button class="btn sm" data-pick="${p.id}">Ekle</button></td></tr>`).join(''); $$('[data-pick]', r).forEach(b => b.onclick = () => { const p = S.persons.find(x => x.id === b.dataset.pick); p.lineId = L.id; p.homeId = stopId; save(); close(); render(); toast(p.name + ' eklendi'); }); };
+  modal(`<h2>${t('Durağa kişi ekle')} – <span dir="auto">${h(placeName(stopId))}</span></h2>
+  <input type="search" id="apq" placeholder="${t('Kişi ara…')}" style="width:100%"><div class="tbl-wrap" style="max-height:50vh;margin-top:8px"><table id="aptbl"></table></div>
+  <p class="small muted">${t('Seçilen kişinin hattı')} <b>${h(lname(L))}</b>, ${t('ev durağı')} <b dir="auto">${h(placeName(stopId))}</b> ${t('olarak güncellenir.')}</p>
+  <div class="actions"><button class="btn" data-close>${t('Kapat')}</button></div>`, (r, close) => {
+    const draw = () => { const q = $('#apq', r).value.toLowerCase(); $('#aptbl', r).innerHTML = cands.filter(p => (p.name + ' ' + p.nickname + ' ' + placeName(p.homeId)).toLowerCase().includes(q)).slice(0, 60).map(p => `<tr><td dir="auto">${h(p.name)}</td><td>${h(p.group)}</td><td dir="auto" class="muted">${h(placeName(p.homeId))} / ${h(lineName(p.lineId))}</td><td><button class="btn sm" data-pick="${p.id}">${t('Ekle')}</button></td></tr>`).join(''); $$('[data-pick]', r).forEach(b => b.onclick = () => { const p = S.persons.find(x => x.id === b.dataset.pick); p.lineId = L.id; p.homeId = stopId; save(); close(); render(); toast(p.name + ' — ' + t('eklendi')); }); };
     draw(); $('#apq', r).oninput = draw;
   });
 }
 
 // ---------- Vardiya & Değişim ----------
 function renderShifts(m) {
-  const t = todayISO();
-  m.innerHTML = `<h1>Vardiya &amp; Değişim</h1>
-  <div class="card"><h2>Döngü</h2>
-    <div class="row"><label class="f">Döngü süresi (gün) <input id="cyc" type="number" min="1" value="${S.settings.cycleDays}" style="width:90px"></label>
-    <span class="muted small">Kural: 9 gün iş, 10. gün değişim → döngü 10 gün. Her değişim gününde işteki grup eve, evdeki grup işe gider.</span></div></div>
-  <div class="card"><h2>Gruplar – şu anki durum ve değişim tarihleri</h2>
-    <p class="small muted">Her grup için <b>şu an nerede</b> olduğunu, bu durumun <b>hangi tarihten beri</b> sürdüğünü ve <b>sonraki değişim tarihini</b> girin; sonrası döngüye göre otomatik hesaplanır. Düzensiz tarihler için "özel tarihler" alanına virgülle ayrılmış tarihler yazabilirsiniz (ör. 2026-11-20, 2026-12-01); listeden sonrası yine döngüyle devam eder.</p>
-    <table><tr><th>Grup</th><th>Şu an</th><th>Bu durum… tarihinden beri</th><th>Sonraki değişim</th><th>Özel değişim tarihleri (isteğe bağlı)</th><th>Kişi</th><th></th></tr>
+  const d0 = todayISO();
+  const calRows = (() => { const dates = new Set([d0]); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, d0, addDays(d0, 120)).forEach(d => dates.add(d))); changeDatesBetween(S.driver, S.driver.cycleDays, d0, addDays(d0, 120)).forEach(d => dates.add(d)); return Array.from(dates).sort(); })();
+  m.innerHTML = `<h1>${t('Vardiya & Değişim')}</h1>
+  <div class="card"><h2>${t('Döngü')}</h2>
+    <div class="row"><label class="f">${t('Döngü süresi (gün)')} <input id="cyc" type="number" min="1" value="${S.settings.cycleDays}" style="width:90px"></label>
+    <span class="muted small">${t('Kural: 9 gün iş, 10. gün değişim → döngü 10 gün. Her değişim gününde işteki grup eve, evdeki grup işe gider.')}</span></div></div>
+  <div class="card"><h2>${t('Gruplar – şu anki durum ve değişim tarihleri')}</h2>
+    <p class="small muted">${t('Her grup için şu an nerede olduğunu, bu durumun hangi tarihten beri sürdüğünü ve sonraki değişim tarihini girin; sonrası döngüye göre otomatik hesaplanır. Düzensiz tarihler için "özel tarihler" alanına virgülle ayrılmış tarihler yazabilirsiniz (ör. 2026-11-20, 2026-12-01); listeden sonrası yine döngüyle devam eder.')}</p>
+    <table><tr><th>${t('Grup')}</th><th>${t('Şu an')}</th><th>${t('Bu durum… tarihinden beri')}</th><th>${t('Sonraki değişim')}</th><th>${t('Özel değişim tarihleri (isteğe bağlı)')}</th><th>${t('Kişi')}</th><th></th></tr>
     ${S.groups.map(g => `<tr data-g="${g.id}"><td><input class="gname" value="${h(g.name)}" style="width:70px"></td>
-      <td><select class="gst"><option value="work" ${g.status === 'work' ? 'selected' : ''}>İşte (fabrikada)</option><option value="home" ${g.status === 'home' ? 'selected' : ''}>Evde</option></select></td>
+      <td><select class="gst"><option value="work" ${g.status === 'work' ? 'selected' : ''}>${t('İşte (fabrikada)')}</option><option value="home" ${g.status === 'home' ? 'selected' : ''}>${t('Evde')}</option></select></td>
       <td><input type="date" class="gsince" value="${h(g.statusSince)}"></td>
       <td><input type="date" class="gnext" value="${h(g.nextChange)}"></td>
-      <td><input class="gcustom" value="${h((g.customDates || []).join(', '))}" placeholder="YYYY-AA-GG, …" style="width:260px"></td>
+      <td><input class="gcustom" value="${h((g.customDates || []).join(', '))}" placeholder="YYYY-MM-DD, …" style="width:260px"></td>
       <td>${S.persons.filter(p => p.group === g.id && personInService(p)).length}</td>
       <td><button class="btn sm danger" data-gdel="${g.id}">✕</button></td></tr>`).join('')}
     </table>
-    <div class="row" style="margin-top:10px"><button class="btn primary" id="gSave">Kaydet</button><button class="btn" id="gAdd">+ Grup ekle</button><button class="btn" id="gApplyAll">A/A1 ve B/B1 için aynı sonraki tarihi uygula</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" id="gSave">${t('Kaydet')}</button><button class="btn" id="gAdd">+ ${t('Grup ekle')}</button><button class="btn" id="gApplyAll">${t('Tüm gruplara aynı sonraki tarihi uygula')}</button></div>
   </div>
-  <div class="card"><h2>Hesaplanan takvim (önümüzdeki 120 gün)</h2>
-    <table><tr><th>Tarih</th><th>Gün</th>${S.groups.map(g => `<th>${h(g.name)}</th>`).join('')}<th>Şoför ekibi</th></tr>
-    ${(() => { const dates = new Set([t]); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, t, addDays(t, 120)).forEach(d => dates.add(d))); changeDatesBetween(S.driver, S.driver.cycleDays, t, addDays(t, 120)).forEach(d => dates.add(d)); return Array.from(dates).sort().map(d => `<tr><td><b>${fmt(d)}</b>${d === t ? ' <span class="badge info">bugün</span>' : ''}</td><td>${dayName(d)}</td>${S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return `<td>${ch ? '<span class="badge ' + (st === 'work' ? 'ok' : 'gray') + '">' + (st === 'work' ? '→ İşe gidiş' : '→ Eve dönüş') + '</span>' : '<span class="muted">' + (st === 'work' ? 'işte' : 'evde') + '</span>'}</td>`; }).join('')}<td>${changeDatesBetween(S.driver, S.driver.cycleDays, d, d).length ? '<span class="badge info">Ekip ' + driverTeamAt(d) + ' göreve</span>' : '<span class="muted">Ekip ' + driverTeamAt(d) + '</span>'}</td></tr>`).join(''); })()}
+  <div class="card"><h2>${t('Hesaplanan takvim (önümüzdeki 120 gün)')}</h2>
+    <table><tr><th>${t('Tarih')}</th><th>${t('Gün')}</th>${S.groups.map(g => `<th>${h(g.name)}</th>`).join('')}<th>${t('Şoför ekibi')}</th></tr>
+    ${calRows.map(d => `<tr><td><b>${fmt(d)}</b>${d === d0 ? ` <span class="badge info">${t('bugün')}</span>` : ''}</td><td>${dayName(d)}</td>${S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return `<td>${ch ? '<span class="badge ' + (st === 'work' ? 'ok' : 'gray') + '">' + (st === 'work' ? '→ ' + t('İşe gidiş') : '→ ' + t('Eve dönüş')) + '</span>' : '<span class="muted">' + (st === 'work' ? t('işte') : t('evde')) + '</span>'}</td>`; }).join('')}<td>${changeDatesBetween(S.driver, S.driver.cycleDays, d, d).length ? `<span class="badge info">${t('Ekip')} ${driverTeamAt(d)} ${t('göreve')}</span>` : `<span class="muted">${t('Ekip')} ${driverTeamAt(d)}</span>`}</td></tr>`).join('')}
     </table></div>`;
   $('#gSave').onclick = () => {
     S.settings.cycleDays = Math.max(1, +$('#cyc').value || 10);
-    $$('tr[data-g]', m).forEach(tr => { const g = groupById(tr.dataset.g); g.name = $('.gname', tr).value.trim() || g.id; g.status = $('.gst', tr).value; g.statusSince = $('.gsince', tr).value || t; g.nextChange = $('.gnext', tr).value; g.customDates = $('.gcustom', tr).value.split(/[,\s]+/).map(x => x.trim()).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); });
-    save(); render(); toast('Vardiya ayarları kaydedildi');
+    $$('tr[data-g]', m).forEach(tr => { const g = groupById(tr.dataset.g); g.name = $('.gname', tr).value.trim() || g.id; g.status = $('.gst', tr).value; g.statusSince = $('.gsince', tr).value || d0; g.nextChange = $('.gnext', tr).value; g.customDates = $('.gcustom', tr).value.split(/[,\s]+/).map(x => x.trim()).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); });
+    save(); render(); toast(t('Vardiya ayarları kaydedildi'));
   };
-  $('#gAdd').onclick = () => modal(`<h2>Yeni grup</h2><label class="f">Grup kodu<input id="ng"></label><div class="actions"><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="ngOk">Ekle</button></div>`, (r, close) => { $('#ngOk', r).onclick = () => { const id = $('#ng', r).value.trim(); if (!id || groupById(id)) return toast('Geçersiz veya mevcut kod', true); S.groups.push({ id, name: id, status: 'home', statusSince: t, nextChange: '', customDates: [] }); save(); close(); render(); }; });
-  $$('[data-gdel]', m).forEach(b => b.onclick = () => { const id = b.dataset.gdel; if (S.persons.some(p => p.group === id)) return toast('Bu grupta kişiler var', true); confirmDlg('Grup silinsin mi?', () => { S.groups = S.groups.filter(g => g.id !== id); save(); render(); }); });
-  $('#gApplyAll').onclick = () => { const a = $$('tr[data-g]', m); const first = a[0] && $('.gnext', a[0]).value; if (!first) return toast('Önce ilk grubun sonraki değişim tarihini girin', true); a.forEach(tr => { $('.gnext', tr).value = first; }); toast('Tüm gruplara uygulandı; Kaydet\'e basın'); };
+  $('#gAdd').onclick = () => modal(`<h2>${t('Yeni grup')}</h2><label class="f">${t('Grup kodu')}<input id="ng"></label><div class="actions">${cancelBtn()}<button class="btn primary" id="ngOk">${t('Ekle')}</button></div>`, (r, close) => { $('#ngOk', r).onclick = () => { const id = $('#ng', r).value.trim(); if (!id || groupById(id)) return toast(t('Geçersiz veya mevcut kod'), true); S.groups.push({ id, name: id, status: 'home', statusSince: d0, nextChange: '', customDates: [] }); save(); close(); render(); }; });
+  $$('[data-gdel]', m).forEach(b => b.onclick = () => { const id = b.dataset.gdel; if (S.persons.some(p => p.group === id)) return toast(t('Bu grupta kişiler var'), true); confirmDlg(t('Grup silinsin mi?'), () => { S.groups = S.groups.filter(g => g.id !== id); save(); render(); }); });
+  $('#gApplyAll').onclick = () => { const a = $$('tr[data-g]', m); const first = a[0] && $('.gnext', a[0]).value; if (!first) return toast(t('Önce ilk grubun sonraki değişim tarihini girin'), true); a.forEach(tr => { $('.gnext', tr).value = first; }); toast(t("Tüm gruplara uygulandı; Kaydet'e basın")); };
 }
 
 // ---------- Şoförler ----------
 function renderDrivers(m) {
-  const t = todayISO(); const team = driverTeamAt(t);
-  m.innerHTML = `<h1>Şoförler</h1>
+  const d0 = todayISO(); const team = driverTeamAt(d0);
+  m.innerHTML = `<h1>${t('Şoförler')}</h1>
   <div class="grid c2">
-  <div class="card"><div class="row between"><h2>Şoför listesi</h2><button class="btn primary" id="dAdd">+ Şoför ekle</button></div>
-    ${S.drivers.map(d => `<div class="drv ${d.team === team ? 'on' : 'off'}"><div style="flex:1"><div class="nm" dir="auto">${h(d.name)} <span class="small muted">${h(d.phone)}</span></div><div class="small muted">Ekip ${d.team} · İşe başlama: ${fmt(d.startDate)} · Bitiş: ${d.endDate ? fmt(d.endDate) : '—'} ${d.notes ? '· ' + h(d.notes) : ''}</div></div><span class="badge ${d.team === team ? 'ok' : 'gray'}">${d.team === team ? 'Aktif' : 'İstirahatte'}</span><button class="btn sm" data-de="${d.id}">Düzenle</button></div>`).join('')}
+  <div class="card"><div class="row between"><h2>${t('Şoför listesi')}</h2><button class="btn primary" id="dAdd">+ ${t('Şoför ekle')}</button></div>
+    ${S.drivers.map(d => `<div class="drv ${d.team === team ? 'on' : 'off'}"><div style="flex:1"><div class="nm" dir="auto">${h(d.name)} <span class="small muted">${h(d.phone)}</span></div><div class="small muted">${t('Ekip')} ${d.team} · ${t('İşe başlama')}: ${fmt(d.startDate)} · ${t('Bitiş')}: ${d.endDate ? fmt(d.endDate) : '—'} ${d.notes ? '· ' + h(d.notes) : ''}</div></div><span class="badge ${d.team === team ? 'ok' : 'gray'}">${d.team === team ? t('Aktif') : t('İstirahatte')}</span><button class="btn sm" data-de="${d.id}">${t('Düzenle')}</button></div>`).join('')}
   </div>
-  <div class="card"><h2>Nöbet düzeni</h2>
-    <p class="small muted">2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.</p>
+  <div class="card"><h2>${t('Nöbet düzeni')}</h2>
+    <p class="small muted">${t('2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.')}</p>
     <div class="grid c2">
-      <label class="f">Şu an görevde olan ekip<select id="dteam"><option value="1" ${S.driver.activeTeam === 1 ? 'selected' : ''}>Ekip 1</option><option value="2" ${S.driver.activeTeam === 2 ? 'selected' : ''}>Ekip 2</option></select></label>
-      <label class="f">Bu ekip … tarihinden beri görevde<input type="date" id="dsince" value="${h(S.driver.statusSince)}"></label>
-      <label class="f">Sonraki şoför değişimi<input type="date" id="dnext" value="${h(S.driver.nextChange)}"></label>
-      <label class="f">Şoför döngüsü (gün)<input type="number" id="dcyc" min="1" value="${S.driver.cycleDays}"></label>
+      <label class="f">${t('Şu an görevde olan ekip')}<select id="dteam"><option value="1" ${S.driver.activeTeam === 1 ? 'selected' : ''}>${t('Ekip')} 1</option><option value="2" ${S.driver.activeTeam === 2 ? 'selected' : ''}>${t('Ekip')} 2</option></select></label>
+      <label class="f">${t('Bu ekip … tarihinden beri görevde')}<input type="date" id="dsince" value="${h(S.driver.statusSince)}"></label>
+      <label class="f">${t('Sonraki şoför değişimi')}<input type="date" id="dnext" value="${h(S.driver.nextChange)}"></label>
+      <label class="f">${t('Şoför döngüsü (gün)')}<input type="number" id="dcyc" min="1" value="${S.driver.cycleDays}"></label>
     </div>
-    <label class="f" style="margin-top:8px">Özel değişim tarihleri (isteğe bağlı)<input id="dcustom" value="${h((S.driver.customDates || []).join(', '))}" placeholder="YYYY-AA-GG, …"></label>
-    <div class="row" style="margin-top:10px"><button class="btn primary" id="dSave">Kaydet</button><button class="btn" id="dAuto">Yolcu değişiminin ortasına ayarla (5 gün sonrası)</button></div>
-    <h3 style="margin-top:14px">Yaklaşan şoför değişimleri</h3>
-    <div class="timeline">${changeDatesBetween(S.driver, S.driver.cycleDays, t, addDays(t, 90)).map(d => `<div class="tl"><b>${fmt(d)}</b>${dayName(d)}<br><span class="muted">Ekip ${driverTeamAt(d)} göreve</span></div>`).join('') || '<span class="muted">Tarih girilmedi</span>'}</div>
+    <label class="f" style="margin-top:8px">${t('Özel değişim tarihleri (isteğe bağlı)')}<input id="dcustom" value="${h((S.driver.customDates || []).join(', '))}" placeholder="YYYY-MM-DD, …"></label>
+    <div class="row" style="margin-top:10px"><button class="btn primary" id="dSave">${t('Kaydet')}</button><button class="btn" id="dAuto">${t('Yolcu değişiminin ortasına ayarla (5 gün sonrası)')}</button></div>
+    <h3 style="margin-top:14px">${t('Yaklaşan şoför değişimleri')}</h3>
+    <div class="timeline">${changeDatesBetween(S.driver, S.driver.cycleDays, d0, addDays(d0, 90)).map(d => `<div class="tl"><b>${fmt(d)}</b>${dayName(d)}<br><span class="muted">${t('Ekip')} ${driverTeamAt(d)} ${t('göreve')}</span></div>`).join('') || `<span class="muted">${t('tarih girilmedi')}</span>`}</div>
   </div></div>`;
   $('#dAdd').onclick = () => editDriver(null); $$('[data-de]', m).forEach(b => b.onclick = () => editDriver(b.dataset.de));
-  $('#dSave').onclick = () => { S.driver.activeTeam = +$('#dteam').value; S.driver.statusSince = $('#dsince').value || t; S.driver.nextChange = $('#dnext').value; S.driver.cycleDays = Math.max(1, +$('#dcyc').value || 10); S.driver.customDates = $('#dcustom').value.split(/[,\s]+/).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); save(); render(); toast('Kaydedildi'); };
-  $('#dAuto').onclick = () => { const nx = upcomingChangeDates(1)[0]; if (!nx) return toast('Önce grup değişim tarihini girin', true); const half = Math.round(S.settings.cycleDays / 2); let d = addDays(nx, half); if (d < t) d = addDays(d, S.settings.cycleDays); $('#dnext').value = d; $('#dcyc').value = S.settings.cycleDays; toast('Önerilen tarih yazıldı: ' + fmt(d) + ' — Kaydet\'e basın'); };
+  $('#dSave').onclick = () => { S.driver.activeTeam = +$('#dteam').value; S.driver.statusSince = $('#dsince').value || d0; S.driver.nextChange = $('#dnext').value; S.driver.cycleDays = Math.max(1, +$('#dcyc').value || 10); S.driver.customDates = $('#dcustom').value.split(/[,\s]+/).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); save(); render(); toast(t('Kaydedildi')); };
+  $('#dAuto').onclick = () => { const nx = upcomingChangeDates(1)[0]; if (!nx) return toast(t('Önce grup değişim tarihini girin'), true); const half = Math.round(S.settings.cycleDays / 2); let d = addDays(nx, half); if (d < d0) d = addDays(d, S.settings.cycleDays); $('#dnext').value = d; $('#dcyc').value = S.settings.cycleDays; toast(t('Önerilen tarih yazıldı') + ': ' + fmt(d)); };
 }
 function editDriver(id) {
   const d = id ? S.drivers.find(x => x.id === id) : { id: uid('d'), name: '', phone: '', team: 1, startDate: '', endDate: '', notes: '' };
-  modal(`<h2>${id ? 'Şoförü düzenle' : 'Yeni şoför'}</h2><div class="grid c2">
-  <label class="f">Ad Soyad<input id="d_name" dir="auto" value="${h(d.name)}"></label><label class="f">Telefon<input id="d_phone" value="${h(d.phone)}"></label>
-  <label class="f">Ekip<select id="d_team"><option value="1" ${d.team === 1 ? 'selected' : ''}>Ekip 1</option><option value="2" ${d.team === 2 ? 'selected' : ''}>Ekip 2</option></select></label>
-  <label class="f">İşe başlama tarihi<input type="date" id="d_start" value="${h(d.startDate)}"></label><label class="f">İşten ayrılış tarihi<input type="date" id="d_end" value="${h(d.endDate)}"></label>
-  <label class="f">Not<input id="d_notes" dir="auto" value="${h(d.notes)}"></label></div>
-  <div class="actions">${id ? '<button class="btn danger" id="d_del">Sil</button>' : ''}<span style="flex:1"></span><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="d_save">Kaydet</button></div>`, (r, close) => {
-    $('#d_save', r).onclick = () => { Object.assign(d, { name: $('#d_name', r).value.trim() || 'Şoför', phone: $('#d_phone', r).value.trim(), team: +$('#d_team', r).value, startDate: $('#d_start', r).value, endDate: $('#d_end', r).value, notes: $('#d_notes', r).value.trim() }); if (!id) S.drivers.push(d); save(); close(); render(); };
-    if (id) $('#d_del', r).onclick = () => confirmDlg('Şoför silinsin mi?', () => { S.drivers = S.drivers.filter(x => x.id !== id); save(); close(); render(); });
+  modal(`<h2>${id ? t('Şoförü düzenle') : t('Yeni şoför')}</h2><div class="grid c2">
+  <label class="f">${t('Ad Soyad')}<input id="d_name" dir="auto" value="${h(d.name)}"></label><label class="f">${t('Telefon')}<input id="d_phone" value="${h(d.phone)}"></label>
+  <label class="f">${t('Ekip')}<select id="d_team"><option value="1" ${d.team === 1 ? 'selected' : ''}>${t('Ekip')} 1</option><option value="2" ${d.team === 2 ? 'selected' : ''}>${t('Ekip')} 2</option></select></label>
+  <label class="f">${t('İşe başlama tarihi')}<input type="date" id="d_start" value="${h(d.startDate)}"></label><label class="f">${t('İşten ayrılış tarihi')}<input type="date" id="d_end" value="${h(d.endDate)}"></label>
+  <label class="f">${t('Not')}<input id="d_notes" dir="auto" value="${h(d.notes)}"></label></div>
+  <div class="actions">${id ? `<button class="btn danger" id="d_del">${t('Sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="d_save">${t('Kaydet')}</button></div>`, (r, close) => {
+    $('#d_save', r).onclick = () => { Object.assign(d, { name: $('#d_name', r).value.trim() || t('Şoför'), phone: $('#d_phone', r).value.trim(), team: +$('#d_team', r).value, startDate: $('#d_start', r).value, endDate: $('#d_end', r).value, notes: $('#d_notes', r).value.trim() }); if (!id) S.drivers.push(d); save(); close(); render(); };
+    if (id) $('#d_del', r).onclick = () => confirmDlg(t('Şoför silinsin mi?'), () => { S.drivers = S.drivers.filter(x => x.id !== id); save(); close(); render(); });
   });
 }
 
 // ---------- Sefer planı ----------
 let planDate = '';
+function planCfg(lid) { S.plans[planDate] = S.plans[planDate] || {}; return S.plans[planDate][lid] = S.plans[planDate][lid] || { buses: 1, firstStopBus1: '' }; }
 function renderPlan(m) {
-  const t = todayISO();
-  const upcoming = upcomingChangeDates(10);
-  if (!planDate) planDate = upcoming[0] || t;
+  const d0 = todayISO(); const upcoming = upcomingChangeDates(10);
+  if (!planDate) planDate = upcoming[0] || d0;
   const P = planFor(planDate);
-  m.innerHTML = `<h1>Sefer Planı</h1>
-  <div class="toolbar"><label class="f">Değişim tarihi<input type="date" id="pdate" value="${planDate}"></label>
-    <select id="pquick"><option value="">Yaklaşan değişimler…</option>${upcoming.map(d => `<option value="${d}">${fmt(d)} ${dayName(d)} — ${changesOn(d).map(g => g.name).join(', ')}</option>`).join('')}</select>
-    <span style="flex:1"></span><button class="btn" id="pXls">Excel'e ver</button><button class="btn primary" id="pPrint">🖨️ Yazdır</button></div>
-  ${P.groups.length ? `<p>Bu tarihte değişen gruplar: ${P.groups.map(g => `<span class="badge ${groupPrevStatus(g, planDate) === 'work' ? 'ok' : 'gray'}">${h(g.name)}: ${groupPrevStatus(g, planDate) === 'work' ? 'işten eve' : 'evden işe'}</span>`).join(' ')}</p>` : '<p class="badge warn">Bu tarihte değişim yok. Vardiya sayfasından değişim tarihlerini kontrol edin.</p>'}
-  <p class="small muted">Şoför: Ekip ${driverTeamAt(planDate)} görevde. Otobüs işyerinden çıkar, eve dönenleri duraklara bırakır ve aynı duraklardan işe gidenleri alır.</p>
-  ${P.lines.map(pl => planLineHtml(pl, planDate)).join('')}`;
+  m.innerHTML = `<h1>${t('Sefer Planı')}</h1>
+  <div class="toolbar"><label class="f">${t('Değişim tarihi')}<input type="date" id="pdate" value="${planDate}"></label>
+    <select id="pquick"><option value="">${t('Yaklaşan değişimler…')}</option>${upcoming.map(d => `<option value="${d}">${fmt(d)} ${dayName(d)} — ${changesOn(d).map(g => g.name).join(', ')}</option>`).join('')}</select>
+    <span style="flex:1"></span><button class="btn" id="pXls">${t("Excel'e ver")}</button><button class="btn primary" id="pPrint">🖨️ ${t('Yazdır')}</button></div>
+  ${P.groups.length ? `<p>${t('Bu tarihte değişen gruplar')}: ${P.groups.map(g => `<span class="badge ${groupPrevStatus(g, planDate) === 'work' ? 'ok' : 'gray'}">${h(g.name)}: ${groupPrevStatus(g, planDate) === 'work' ? t('işten eve') : t('evden işe')}</span>`).join(' ')}</p>` : `<p class="badge warn">${t('Bu tarihte değişim yok. Vardiya sayfasından değişim tarihlerini kontrol edin.')}</p>`}
+  <p class="small muted">${t('Şoför')}: ${t('Ekip')} ${driverTeamAt(planDate)} ${t('görevde')}. ${t('Otobüs işyerinden çıkar, eve dönenleri duraklara bırakır ve aynı duraklardan işe gidenleri alır.')}</p>
+  ${P.lines.map(pl => planLineHtml(pl)).join('')}`;
   $('#pdate').onchange = e => { planDate = e.target.value; render(); };
   $('#pquick').onchange = e => { if (e.target.value) { planDate = e.target.value; render(); } };
-  $$('[data-buses]', m).forEach(s => s.onchange = () => { const lid = s.dataset.buses; const c = ((S.plans[planDate] = S.plans[planDate] || {})[lid] = (S.plans[planDate] || {})[lid] || { buses: 1, firstStopBus1: '' }); c.buses = +s.value; save(); render(); });
-  $$('[data-split]', m).forEach(s => s.onchange = () => { const lid = s.dataset.split; const c = ((S.plans[planDate] = S.plans[planDate] || {})[lid] = (S.plans[planDate] || {})[lid] || { buses: 2, firstStopBus1: '' }); c.firstStopBus1 = s.value; save(); render(); });
-  $$('[data-note]', m).forEach(s => s.onchange = () => { const lid = s.dataset.note; const c = ((S.plans[planDate] = S.plans[planDate] || {})[lid] = (S.plans[planDate] || {})[lid] || { buses: 1, firstStopBus1: '' }); c.note = s.value; save(); });
+  $$('[data-buses]', m).forEach(s => s.onchange = () => { planCfg(s.dataset.buses).buses = +s.value; save(); render(); });
+  $$('[data-split]', m).forEach(s => s.onchange = () => { planCfg(s.dataset.split).firstStopBus1 = s.value; save(); render(); });
+  $$('[data-note]', m).forEach(s => s.onchange = () => { planCfg(s.dataset.note).note = s.value; save(); });
   $('#pPrint').onclick = () => printReport('plan', { date: planDate });
   $('#pXls').onclick = () => exportPlanExcel(planDate);
 }
-function planLineHtml(pl, date) {
+function planLineHtml(pl) {
   const L = pl.line, cfg = pl.cfg;
-  if (!pl.rows.length) return `<div class="card tight"><b>${h(L.name)}</b> <span class="muted small">— bu tarihte yolcu yok</span></div>`;
-  const stopHtml = sid => { const rs = pl.byStop[sid]; const bus = rs[0].bus; return `<div class="plan-stop ${cfg.buses === 2 ? 'bus' + bus : ''}"><div class="hd"><span dir="auto">${h(placeName(sid))} ${L.stops.includes(sid) ? '' : '<span class="badge warn">durak tanımsız</span>'}</span><span class="small muted">${cfg.buses === 2 ? 'Otobüs ' + bus + ' · ' : ''}eve ${rs.filter(r => r.dir === 'toHome').length} · işe ${rs.filter(r => r.dir === 'toWork').length}</span></div><ul>${rs.map(r => `<li>${r.dir === 'toHome' ? '🏠' : '🏭'} <span dir="auto">${h(r.p.name)}</span> <span class="muted small">${h(r.p.group)}</span></li>`).join('')}</ul></div>`; };
-  return `<div class="card"><div class="row between"><h2>${h(L.name)} <span class="muted small">— eve dönen ${pl.toHome}, işe giden ${pl.toWork}, toplam ${pl.rows.length}</span></h2>
-    <div class="row"><label class="f">Otobüs sayısı<select data-buses="${L.id}"><option value="1" ${cfg.buses !== 2 ? 'selected' : ''}>1 otobüs</option><option value="2" ${cfg.buses === 2 ? 'selected' : ''}>2 otobüs (ekspres + toplayıcı)</option></select></label>
-    ${cfg.buses === 2 ? `<label class="f">Otobüs 1 (ekspres) ilk durağı<select data-split="${L.id}">${opt(L.stops.map(s => ({ id: s, name: placeName(s) })), cfg.firstStopBus1, x => x.name, x => x.id, '— seçiniz —')}</select></label>` : ''}</div></div>
-    ${cfg.buses === 2 ? '<div class="legend"><span class="badge info">Otobüs 1</span> ekspres: seçilen duraktan önce kimseyi almaz/bırakmaz · <span class="badge warn">Otobüs 2</span> kalan durakları toplar</div>' : ''}
+  if (!pl.rows.length) return `<div class="card tight"><i class="dot" style="background:${lineColor(L)}"></i> <b>${h(lname(L))}</b> <span class="muted small">— ${t('bu tarihte yolcu yok')}</span></div>`;
+  const stopHtml = sid => { const rs = pl.byStop[sid]; const bus = rs[0].bus; return `<div class="plan-stop ${cfg.buses === 2 ? 'bus' + bus : ''}"><div class="hd"><span dir="auto">${h(placeName(sid))} ${L.stops.includes(sid) ? '' : `<span class="badge warn">${t('durak tanımsız')}</span>`}</span><span class="small muted">${cfg.buses === 2 ? t('Otobüs') + ' ' + bus + ' · ' : ''}${t('eve')} ${rs.filter(r => r.dir === 'toHome').length} · ${t('işe')} ${rs.filter(r => r.dir === 'toWork').length}</span></div><ul>${rs.map(r => `<li>${r.dir === 'toHome' ? '🏠' : '🏭'} <span dir="auto">${h(r.p.name)}</span> <span class="muted small">${h(r.p.group)}</span></li>`).join('')}</ul></div>`; };
+  return `<div class="card"><div class="row between"><h2><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))} <span class="muted small">— ${t('eve dönen')} ${pl.toHome}, ${t('işe giden')} ${pl.toWork}, ${t('toplam')} ${pl.rows.length}</span></h2>
+    <div class="row"><label class="f">${t('Otobüs sayısı')}<select data-buses="${L.id}"><option value="1" ${cfg.buses !== 2 ? 'selected' : ''}>${t('1 otobüs')}</option><option value="2" ${cfg.buses === 2 ? 'selected' : ''}>${t('2 otobüs (ekspres + toplayıcı)')}</option></select></label>
+    ${cfg.buses === 2 ? `<label class="f">${t('Otobüs 1 (ekspres) ilk durağı')}<select data-split="${L.id}">${opt(L.stops.map(s => ({ id: s, name: placeName(s) })), cfg.firstStopBus1, x => x.name, x => x.id, t('— seçiniz —'))}</select></label>` : ''}</div></div>
+    ${cfg.buses === 2 ? `<div class="legend"><span class="badge info">${t('Otobüs')} 1</span> ${t('ekspres: seçilen duraktan önce kimseyi almaz/bırakmaz')} · <span class="badge warn">${t('Otobüs')} 2</span> ${t('kalan durakları toplar')}</div>` : ''}
     <div class="grid c2" style="margin-top:8px">${pl.stopList.map(stopHtml).join('')}</div>
-    <label class="f" style="margin-top:8px">Not (çıktıda görünür)<input data-note="${L.id}" value="${h(cfg.note || '')}"></label></div>`;
+    <label class="f" style="margin-top:8px">${t('Not (çıktıda görünür)')}<input data-note="${L.id}" value="${h(cfg.note || '')}"></label></div>`;
 }
 
 // ---------- Çıktılar ----------
+const REPORT_TYPES = [['plan', 'Sefer planı (değişim günü)'], ['persons', 'Kişi listesi (tüm)'], ['line', 'Hat listesi (duraklara göre)'], ['groups', 'Grup listeleri (işte / evde)'], ['exempt', 'Muaf ve sistem dışı kişiler'], ['calendar', 'Değişim takvimi'], ['drivers', 'Şoför nöbet çizelgesi']];
 function renderReports(m) {
-  const lhs = S.letterheads;
-  m.innerHTML = `<h1>Çıktılar</h1>
+  m.innerHTML = `<h1>${t('Çıktılar')}</h1>
   <div class="card"><div class="grid c3">
-    <label class="f">Rapor<select id="rtype">
-      <option value="plan">Sefer planı (değişim günü)</option>
-      <option value="persons">Kişi listesi (tüm)</option>
-      <option value="line">Hat listesi (duraklara göre)</option>
-      <option value="groups">Grup listeleri (işte / evde)</option>
-      <option value="exempt">Muaf ve sistem dışı kişiler</option>
-      <option value="calendar">Değişim takvimi</option>
-      <option value="drivers">Şoför nöbet çizelgesi</option></select></label>
-    <label class="f">Antet<select id="rlh">${opt(lhs, S.settings.defaultLetterheadId)}</select></label>
-    <label class="f">Tarih<input type="date" id="rdate" value="${planDate || upcomingChangeDates(1)[0] || todayISO()}"></label>
-    <label class="f" id="rlineWrap">Hat<select id="rline">${opt(S.lines, '', x => x.name, x => x.id, 'Tüm hatlar')}</select></label>
-    <label class="f">Başlık (isteğe bağlı)<input id="rtitle" placeholder="Varsayılan başlık"></label>
+    <label class="f">${t('Rapor')}<select id="rtype">${REPORT_TYPES.map(([v, l]) => `<option value="${v}">${t(l)}</option>`).join('')}</select></label>
+    <label class="f">${t('Antet')}<select id="rlh">${opt(S.letterheads, S.settings.defaultLetterheadId)}</select></label>
+    <label class="f">${t('Tarih')}<input type="date" id="rdate" value="${planDate || upcomingChangeDates(1)[0] || todayISO()}"></label>
+    <label class="f">${t('Hat')}<select id="rline">${opt(S.lines, '', x => lname(x), x => x.id, t('Tüm hatlar'))}</select></label>
+    <label class="f">${t('Başlık (isteğe bağlı)')}<input id="rtitle" placeholder="${t('Varsayılan başlık')}"></label>
   </div>
-  <div class="row" style="margin-top:12px"><button class="btn primary" id="rPrint">🖨️ Yazdır / PDF</button><button class="btn" id="rXls">📗 Excel'e ver</button><button class="btn" id="rPrev">Önizleme</button></div></div>
+  <div class="row" style="margin-top:12px"><button class="btn primary" id="rPrint">🖨️ ${t('Yazdır / PDF')}</button><button class="btn" id="rXls">📗 ${t("Excel'e ver")}</button><button class="btn" id="rPrev">${t('Önizleme')}</button></div></div>
   <div id="rprev" class="card" style="display:none"></div>`;
   const opts = () => ({ date: $('#rdate').value, lineId: $('#rline').value, lhId: $('#rlh').value, title: $('#rtitle').value.trim() });
   $('#rPrint').onclick = () => printReport($('#rtype').value, opts());
   $('#rPrev').onclick = () => { const d = $('#rprev'); d.style.display = 'block'; d.innerHTML = '<div class="print-area" style="display:block;background:#fff;padding:10px">' + reportHtml($('#rtype').value, opts()) + '</div>'; };
-  $('#rXls').onclick = () => { const ty = $('#rtype').value, o = opts(); if (ty === 'plan') exportPlanExcel(o.date); else if (ty === 'persons' || ty === 'exempt' || ty === 'groups' || ty === 'line') exportPersonsExcel(ty, o); else if (ty === 'calendar') exportCalendarExcel(); else if (ty === 'drivers') exportDriversExcel(); };
+  $('#rXls').onclick = () => { const ty = $('#rtype').value, o = opts(); if (ty === 'plan') exportPlanExcel(o.date); else if (ty === 'calendar') exportCalendarExcel(); else if (ty === 'drivers') exportDriversExcel(); else exportPersonsExcel(ty, o); };
 }
 function letterheadHtml(lhId) {
   const lh = S.letterheads.find(x => x.id === lhId) || S.letterheads.find(x => x.id === S.settings.defaultLetterheadId) || S.letterheads[0];
@@ -545,182 +667,183 @@ function letterheadHtml(lhId) {
   if (lh.kind === 'image') return `<div class="lh img-only"><img src="${lh.imageData}"></div>` + (lh.watermark ? '<div class="wm"></div>' : '');
   return `${lh.watermark ? '<div class="wm"></div>' : ''}<div class="lh"><div class="l">${h(lh.left)}</div><img src="${h(lh.logo || 'assets/logo.png')}"><div class="r">${h(lh.right)}</div></div>`;
 }
+const dirLabel = r => r.dir === 'toHome' ? t('Eve dönüş') : t('İşe gidiş');
+const personStatusLabel = p => p.active === false ? t('Çıkarıldı') : personExempt(p) ? t('Muaf') : t('Serviste');
 function reportHtml(type, o) {
-  const t = todayISO(); const date = o.date || t;
+  const d0 = todayISO(); const date = o.date || d0;
   const head = (title, sub) => `<h1>${h(o.title || title)}</h1><div class="sub">${h(sub || '')}</div>`;
-  const foot = () => `<div class="foot"><span>${h(S.settings.orgName)} · ${h(S.settings.adminName)}</span><span>Yazdırma: ${fmt(t)}</span></div>`;
+  const foot = () => `<div class="foot"><span>${h(S.settings.orgName)} · ${h(S.settings.adminName)}</span><span>${t('Yazdırma')}: ${fmt(d0)}</span></div>`;
   let body = '';
   if (type === 'plan') {
     const P = planFor(date);
-    body = head('Sefer Planı – Değişim Günü', `${fmt(date)} ${dayName(date)} · Değişen gruplar: ${P.groups.map(g => g.name).join(', ') || '—'} · Şoför Ekip ${driverTeamAt(date)} (${S.drivers.filter(d => d.team === driverTeamAt(date)).map(d => d.name).join(', ')})`);
+    body = head(t('Sefer Planı – Değişim Günü'), `${fmt(date)} ${dayName(date)} · ${t('Değişen gruplar')}: ${P.groups.map(g => g.name).join(', ') || '—'} · ${t('Şoför')} ${t('Ekip')} ${driverTeamAt(date)} (${S.drivers.filter(d => d.team === driverTeamAt(date)).map(d => d.name).join(', ')})`);
     P.lines.filter(pl => pl.rows.length && (!o.lineId || pl.line.id === o.lineId)).forEach((pl, i) => {
-      body += `<div class="sec ${i ? 'pb' : ''}">${h(pl.line.name)} — eve dönen ${pl.toHome}, işe giden ${pl.toWork}, toplam ${pl.rows.length}${pl.cfg.buses === 2 ? ' · 2 otobüs (Otobüs 1 ekspres: ' + h(placeName(pl.cfg.firstStopBus1)) + ' durağından itibaren)' : ''}</div>`;
-      if (pl.cfg.note) body += `<div class="small">Not: ${h(pl.cfg.note)}</div>`;
-      body += `<table><tr><th>#</th><th>Durak</th>${pl.cfg.buses === 2 ? '<th>Otobüs</th>' : ''}<th>Ad Soyad</th><th>Lakap</th><th>Sicil</th><th>Grup</th><th>Yön</th></tr>`;
-      let n = 0; pl.stopList.forEach(sid => pl.byStop[sid].forEach(r => { body += `<tr><td>${++n}</td><td dir="auto">${h(placeName(sid))}</td>${pl.cfg.buses === 2 ? '<td>' + r.bus + '</td>' : ''}<td dir="auto">${h(r.p.name)}</td><td dir="auto">${h(r.p.nickname)}</td><td>${h(r.p.regNo)}</td><td>${h(r.p.group)}</td><td>${r.dir === 'toHome' ? 'Eve dönüş' : 'İşe gidiş'}</td></tr>`; }));
+      body += `<div class="sec ${i ? 'pb' : ''}">${h(lname(pl.line))} — ${t('eve dönen')} ${pl.toHome}, ${t('işe giden')} ${pl.toWork}, ${t('toplam')} ${pl.rows.length}${pl.cfg.buses === 2 ? ' · ' + t('2 otobüs') + ' (' + t('Otobüs') + ' 1 ' + t('ekspres') + ': ' + h(placeName(pl.cfg.firstStopBus1)) + ' ' + t('durağından itibaren') + ')' : ''}</div>`;
+      if (pl.cfg.note) body += `<div class="small">${t('Not')}: ${h(pl.cfg.note)}</div>`;
+      body += `<table><tr><th>#</th><th>${t('Durak')}</th>${pl.cfg.buses === 2 ? `<th>${t('Otobüs')}</th>` : ''}<th>${t('Ad Soyad')}</th><th>${t('Lakap')}</th><th>${t('Sicil')}</th><th>${t('Grup')}</th><th>${t('Yön')}</th></tr>`;
+      let n = 0; pl.stopList.forEach(sid => pl.byStop[sid].forEach(r => { body += `<tr><td>${++n}</td><td dir="auto">${h(placeName(sid))}</td>${pl.cfg.buses === 2 ? '<td>' + r.bus + '</td>' : ''}<td dir="auto">${h(r.p.name)}</td><td dir="auto">${h(r.p.nickname)}</td><td>${h(r.p.regNo)}</td><td>${h(r.p.group)}</td><td>${dirLabel(r)}</td></tr>`; }));
       body += '</table>';
     });
-    body += `<div class="sig"><div>Şoför</div><div>${h(S.settings.adminName)}</div></div>`;
-  } else if (type === 'persons' || type === 'exempt' || type === 'groups' || type === 'line') {
+    body += `<div class="sig"><div>${t('Şoför')}</div><div>${h(S.settings.adminName)}</div></div>`;
+  } else if (['persons', 'exempt', 'groups', 'line'].includes(type)) {
     let list = S.persons.slice().sort((a, b) => (Number(a.seq) || 9999) - (Number(b.seq) || 9999));
     if (type === 'exempt') list = list.filter(p => personExempt(p) || p.active === false);
     if (o.lineId) list = list.filter(p => p.lineId === o.lineId);
-    const tbl = rows => `<table><tr><th>#</th><th>Sicil</th><th>Ad Soyad</th><th>Lakap</th><th>Unvan</th><th>Grup</th><th>Ev</th><th>İşyeri</th><th>Hat</th><th>Durum</th></tr>${rows.map((p, i) => `<tr><td>${i + 1}</td><td>${h(p.regNo)}</td><td dir="auto">${h(p.name)}</td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group)}</td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${p.active === false ? 'Çıkarıldı' : personExempt(p) ? 'Muaf' : 'Serviste'}</td></tr>`).join('')}</table>`;
+    const tbl = rows => `<table><tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Lakap')}</th><th>${t('Unvan')}</th><th>${t('Grup')}</th><th>${t('Ev')}</th><th>${t('İşyeri')}</th><th>${t('Hat')}</th><th>${t('Durum')}</th></tr>${rows.map((p, i) => `<tr><td>${i + 1}</td><td>${h(p.regNo)}</td><td dir="auto">${h(p.name)}</td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group)}</td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${personStatusLabel(p)}</td></tr>`).join('')}</table>`;
     if (type === 'groups') {
-      body = head('Grup Listeleri', `${fmt(date)} itibarıyla`);
-      S.groups.forEach(g => { const rows = list.filter(p => p.group === g.id && personInService(p)); body += `<div class="sec">Grup ${h(g.name)} — ${groupStatusAt(g, date) === 'work' ? 'İŞTE (fabrikada)' : 'EVDE'} — ${rows.length} kişi · sonraki değişim ${fmt(groupNextChange(g, date))}</div>` + tbl(rows); });
+      body = head(t('Grup Listeleri'), `${fmt(date)}`);
+      S.groups.forEach(g => { const rows = list.filter(p => p.group === g.id && personInService(p)); body += `<div class="sec">${t('Grup')} ${h(g.name)} — ${groupStatusAt(g, date) === 'work' ? t('İŞTE (fabrikada)') : t('EVDE')} — ${rows.length} ${t('kişi')} · ${t('sonraki değişim')} ${fmt(groupNextChange(g, date))}</div>` + tbl(rows); });
     } else if (type === 'line') {
-      body = head('Hat Listesi', o.lineId ? lineName(o.lineId) : 'Tüm hatlar');
-      S.lines.filter(L => !o.lineId || L.id === o.lineId).forEach(L => { body += `<div class="sec">${h(L.name)} — işyeri: ${h(placeName(L.endA))}</div>`; L.stops.forEach((sid, i) => { const rows = list.filter(p => p.lineId === L.id && p.homeId === sid); if (!rows.length) return; body += `<div class="small"><b>${i + 1}. ${h(placeName(sid))}</b> (${rows.length})</div>` + tbl(rows); }); const un = list.filter(p => p.lineId === L.id && !L.stops.includes(p.homeId)); if (un.length) body += '<div class="small"><b>Durağı tanımsız</b></div>' + tbl(un); });
-    } else body = head(type === 'exempt' ? 'Muaf ve Sistem Dışı Kişiler' : 'Kişi Listesi', `${list.length} kişi · ${fmt(t)}`) + tbl(list);
+      body = head(t('Hat Listesi'), o.lineId ? lineName(o.lineId) : t('Tüm hatlar'));
+      S.lines.filter(L => !o.lineId || L.id === o.lineId).forEach(L => { body += `<div class="sec">${h(lname(L))} — ${t('işyeri')}: ${h(placeName(L.endA))}</div>`; L.stops.forEach((sid, i) => { const rows = list.filter(p => p.lineId === L.id && p.homeId === sid); if (!rows.length) return; body += `<div class="small"><b>${i + 1}. ${h(placeName(sid))}</b> (${rows.length})</div>` + tbl(rows); }); const un = list.filter(p => p.lineId === L.id && !L.stops.includes(p.homeId)); if (un.length) body += `<div class="small"><b>${t('Durağı tanımsız')}</b></div>` + tbl(un); });
+    } else body = head(type === 'exempt' ? t('Muaf ve Sistem Dışı Kişiler') : t('Kişi Listesi'), `${list.length} ${t('kişi')} · ${fmt(d0)}`) + tbl(list);
   } else if (type === 'calendar') {
     const dates = new Set(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, date, addDays(date, 180)).forEach(d => dates.add(d))); changeDatesBetween(S.driver, S.driver.cycleDays, date, addDays(date, 180)).forEach(d => dates.add(d));
-    body = head('Değişim Takvimi', `${fmt(date)} – ${fmt(addDays(date, 180))}`) + `<table><tr><th>Tarih</th><th>Gün</th>${S.groups.map(g => `<th>${h(g.name)}</th>`).join('')}<th>Şoför</th></tr>` + Array.from(dates).sort().map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td>${S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return `<td>${ch ? (st === 'work' ? 'İşe gidiş' : 'Eve dönüş') : (st === 'work' ? 'işte' : 'evde')}</td>`; }).join('')}<td>${changeDatesBetween(S.driver, S.driver.cycleDays, d, d).length ? 'Ekip ' + driverTeamAt(d) + ' göreve' : 'Ekip ' + driverTeamAt(d)}</td></tr>`).join('') + '</table>';
+    body = head(t('Değişim Takvimi'), `${fmt(date)} – ${fmt(addDays(date, 180))}`) + `<table><tr><th>${t('Tarih')}</th><th>${t('Gün')}</th>${S.groups.map(g => `<th>${h(g.name)}</th>`).join('')}<th>${t('Şoför')}</th></tr>` + Array.from(dates).sort().map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td>${S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return `<td>${ch ? (st === 'work' ? t('İşe gidiş') : t('Eve dönüş')) : (st === 'work' ? t('işte') : t('evde'))}</td>`; }).join('')}<td>${t('Ekip')} ${driverTeamAt(d)}${changeDatesBetween(S.driver, S.driver.cycleDays, d, d).length ? ' ' + t('göreve') : ''}</td></tr>`).join('') + '</table>';
   } else if (type === 'drivers') {
-    body = head('Şoför Nöbet Çizelgesi', `${fmt(date)} itibarıyla · Görevde: Ekip ${driverTeamAt(date)}`) + `<table><tr><th>Ad Soyad</th><th>Telefon</th><th>Ekip</th><th>Durum</th><th>İşe başlama</th><th>Bitiş</th><th>Not</th></tr>${S.drivers.map(d => `<tr><td dir="auto">${h(d.name)}</td><td>${h(d.phone)}</td><td>${d.team}</td><td>${d.team === driverTeamAt(date) ? 'Aktif' : 'İstirahatte'}</td><td>${fmt(d.startDate)}</td><td>${d.endDate ? fmt(d.endDate) : '—'}</td><td dir="auto">${h(d.notes)}</td></tr>`).join('')}</table><div class="sec">Yaklaşan şoför değişimleri</div><table><tr><th>Tarih</th><th>Gün</th><th>Göreve gelen ekip</th><th>Şoförler</th></tr>${changeDatesBetween(S.driver, S.driver.cycleDays, date, addDays(date, 120)).map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td><td>Ekip ${driverTeamAt(d)}</td><td dir="auto">${S.drivers.filter(x => x.team === driverTeamAt(d)).map(x => h(x.name)).join(', ')}</td></tr>`).join('')}</table>`;
+    body = head(t('Şoför Nöbet Çizelgesi'), `${fmt(date)} · ${t('Görevde')}: ${t('Ekip')} ${driverTeamAt(date)}`) + `<table><tr><th>${t('Ad Soyad')}</th><th>${t('Telefon')}</th><th>${t('Ekip')}</th><th>${t('Durum')}</th><th>${t('İşe başlama')}</th><th>${t('Bitiş')}</th><th>${t('Not')}</th></tr>${S.drivers.map(d => `<tr><td dir="auto">${h(d.name)}</td><td>${h(d.phone)}</td><td>${d.team}</td><td>${d.team === driverTeamAt(date) ? t('Aktif') : t('İstirahatte')}</td><td>${fmt(d.startDate)}</td><td>${d.endDate ? fmt(d.endDate) : '—'}</td><td dir="auto">${h(d.notes)}</td></tr>`).join('')}</table><div class="sec">${t('Yaklaşan şoför değişimleri')}</div><table><tr><th>${t('Tarih')}</th><th>${t('Gün')}</th><th>${t('Göreve gelen ekip')}</th><th>${t('Şoförler')}</th></tr>${changeDatesBetween(S.driver, S.driver.cycleDays, date, addDays(date, 120)).map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td><td>${t('Ekip')} ${driverTeamAt(d)}</td><td dir="auto">${S.drivers.filter(x => x.team === driverTeamAt(d)).map(x => h(x.name)).join(', ')}</td></tr>`).join('')}</table>`;
   }
-  return `<div class="page">${letterheadHtml(o.lhId)}${body}${foot()}</div>`;
+  return `<div class="page" dir="${LANG === 'ar' ? 'rtl' : 'ltr'}">${letterheadHtml(o.lhId)}${body}${foot()}</div>`;
 }
-function printReport(type, o) {
-  $('#printArea').innerHTML = reportHtml(type, o);
-  setTimeout(() => { if (isElectron) window.electronAPI.print(); else window.print(); }, 150);
-}
+function printReport(type, o) { $('#printArea').innerHTML = reportHtml(type, o); setTimeout(() => { if (isElectron) window.electronAPI.print(); else window.print(); }, 150); }
 
 // ---------- Excel ----------
 async function saveBlob(name, u8) {
-  if (isElectron) { const b64 = btoa(String.fromCharCode(...new Uint8Array(u8))); const p = await window.electronAPI.saveFile({ name, dataBase64: b64, filters: [{ name: 'Excel', extensions: ['xlsx'] }, { name: 'JSON', extensions: ['json'] }] }); if (p) toast('Kaydedildi: ' + p); return; }
+  if (isElectron) { let bin = ''; const a = new Uint8Array(u8); for (let i = 0; i < a.length; i += 8192) bin += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); const p = await window.electronAPI.saveFile({ name, dataBase64: btoa(bin), filters: [{ name: 'Excel', extensions: ['xlsx'] }, { name: 'JSON', extensions: ['json'] }] }); if (p) toast(t('Kaydedildi') + ': ' + p); return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([u8])); a.download = name; a.click();
 }
-function xlsxFromSheets(sheets) { const wb = XLSX.utils.book_new(); sheets.forEach(([n, rows]) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = rows[0].map((_, i) => ({ wch: Math.min(40, Math.max(8, ...rows.map(r => String(r[i] ?? '').length + 2))) })); XLSX.utils.book_append_sheet(wb, ws, n.slice(0, 30)); }); return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }); }
-const personRow = p => [p.seq, p.regNo, p.name, p.nickname, p.title, p.mother, p.group, placeName(p.homeId), placeName(p.workId), lineName(p.lineId), p.active === false ? 'Çıkarıldı' : personExempt(p) ? 'Muaf' : 'Serviste', p.notes];
-const PH = ['Sıra', 'Sicil', 'Ad Soyad', 'Lakap', 'Unvan', 'Anne adı', 'Grup', 'Ev', 'İşyeri', 'Hat', 'Durum', 'Not'];
+function xlsxFromSheets(sheets) { const wb = XLSX.utils.book_new(); sheets.forEach(([n, rows]) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = rows[0].map((_, i) => ({ wch: Math.min(40, Math.max(8, ...rows.map(r => String(r[i] ?? '').length + 2))) })); if (LANG === 'ar') ws['!views'] = [{ RTL: true }]; XLSX.utils.book_append_sheet(wb, ws, n.replace(/[\\/?*\[\]:]/g, ' ').slice(0, 30)); }); return XLSX.write(wb, { type: 'array', bookType: 'xlsx' }); }
+const personRow = p => [p.seq, p.regNo, p.name, p.nickname, p.title, p.mother, p.group, placeName(p.homeId), placeName(p.workId), lineName(p.lineId), personStatusLabel(p), p.notes];
+const PH = () => ['Sıra', 'Sicil', 'Ad Soyad', 'Lakap', 'Unvan', 'Anne adı', 'Grup', 'Ev', 'İşyeri', 'Hat', 'Durum', 'Not'].map(x => t(x));
 function exportPersonsExcel(type, o) {
   let list = S.persons.slice().sort((a, b) => (Number(a.seq) || 9999) - (Number(b.seq) || 9999));
   if (type === 'exempt') list = list.filter(p => personExempt(p) || p.active === false);
   if (o && o.lineId) list = list.filter(p => p.lineId === o.lineId);
   const sheets = [];
-  if (type === 'groups') S.groups.forEach(g => sheets.push(['Grup ' + g.name, [PH, ...list.filter(p => p.group === g.id).map(personRow)]]));
-  else if (type === 'line') S.lines.forEach(L => { if (o && o.lineId && L.id !== o.lineId) return; sheets.push([L.name.replace(/[\\/?*\[\]:]/g, ' '), [['Durak sırası', ...PH], ...L.stops.flatMap((sid, i) => list.filter(p => p.lineId === L.id && p.homeId === sid).map(p => [i + 1, ...personRow(p)]))]]); });
-  else sheets.push(['Kişiler', [PH, ...list.map(personRow)]]);
+  if (type === 'groups') S.groups.forEach(g => sheets.push([t('Grup') + ' ' + g.name, [PH(), ...list.filter(p => p.group === g.id).map(personRow)]]));
+  else if (type === 'line') S.lines.forEach(L => { if (o && o.lineId && L.id !== o.lineId) return; sheets.push([lname(L), [[t('Durak sırası'), ...PH()], ...L.stops.flatMap((sid, i) => list.filter(p => p.lineId === L.id && p.homeId === sid).map(p => [i + 1, ...personRow(p)]))]]); });
+  else sheets.push([t('Kişiler'), [PH(), ...list.map(personRow)]]);
   saveBlob('kisiler-' + todayISO() + '.xlsx', xlsxFromSheets(sheets));
 }
 function exportPlanExcel(date) {
   const P = planFor(date); const sheets = [];
-  P.lines.filter(pl => pl.rows.length).forEach(pl => { const rows = [['Durak', 'Otobüs', 'Ad Soyad', 'Lakap', 'Sicil', 'Grup', 'Yön']]; pl.stopList.forEach(sid => pl.byStop[sid].forEach(r => rows.push([placeName(sid), pl.cfg.buses === 2 ? r.bus : 1, r.p.name, r.p.nickname, r.p.regNo, r.p.group, r.dir === 'toHome' ? 'Eve dönüş' : 'İşe gidiş']))); sheets.push([pl.line.name.replace(/[\\/?*\[\]:]/g, ' '), rows]); });
-  if (!sheets.length) return toast('Bu tarihte yolcu yok', true);
+  P.lines.filter(pl => pl.rows.length).forEach(pl => { const rows = [[t('Durak'), t('Otobüs'), t('Ad Soyad'), t('Lakap'), t('Sicil'), t('Grup'), t('Yön')]]; pl.stopList.forEach(sid => pl.byStop[sid].forEach(r => rows.push([placeName(sid), pl.cfg.buses === 2 ? r.bus : 1, r.p.name, r.p.nickname, r.p.regNo, r.p.group, dirLabel(r)]))); sheets.push([lname(pl.line), rows]); });
+  if (!sheets.length) return toast(t('Bu tarihte yolcu yok'), true);
   saveBlob('sefer-plani-' + date + '.xlsx', xlsxFromSheets(sheets));
 }
 function exportCalendarExcel() {
-  const t = todayISO(); const dates = new Set(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, t, addDays(t, 365)).forEach(d => dates.add(d))); changeDatesBetween(S.driver, S.driver.cycleDays, t, addDays(t, 365)).forEach(d => dates.add(d));
-  const rows = [['Tarih', 'Gün', ...S.groups.map(g => g.name), 'Şoför ekibi']]; Array.from(dates).sort().forEach(d => rows.push([fmt(d), dayName(d), ...S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return ch ? (st === 'work' ? 'İşe gidiş' : 'Eve dönüş') : (st === 'work' ? 'işte' : 'evde'); }), 'Ekip ' + driverTeamAt(d)]));
-  saveBlob('degisim-takvimi.xlsx', xlsxFromSheets([['Takvim', rows]]));
+  const d0 = todayISO(); const dates = new Set(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, d0, addDays(d0, 365)).forEach(d => dates.add(d))); changeDatesBetween(S.driver, S.driver.cycleDays, d0, addDays(d0, 365)).forEach(d => dates.add(d));
+  const rows = [[t('Tarih'), t('Gün'), ...S.groups.map(g => g.name), t('Şoför ekibi')]]; Array.from(dates).sort().forEach(d => rows.push([fmt(d), dayName(d), ...S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return ch ? (st === 'work' ? t('İşe gidiş') : t('Eve dönüş')) : (st === 'work' ? t('işte') : t('evde')); }), t('Ekip') + ' ' + driverTeamAt(d)]));
+  saveBlob('degisim-takvimi.xlsx', xlsxFromSheets([[t('Takvim'), rows]]));
 }
-function exportDriversExcel() { saveBlob('soforler.xlsx', xlsxFromSheets([['Şoförler', [['Ad Soyad', 'Telefon', 'Ekip', 'İşe başlama', 'Bitiş', 'Not'], ...S.drivers.map(d => [d.name, d.phone, d.team, fmt(d.startDate), d.endDate ? fmt(d.endDate) : '', d.notes])]]])); }
+function exportDriversExcel() { saveBlob('soforler.xlsx', xlsxFromSheets([[t('Şoförler'), [[t('Ad Soyad'), t('Telefon'), t('Ekip'), t('İşe başlama'), t('Bitiş'), t('Not')], ...S.drivers.map(d => [d.name, d.phone, d.team, fmt(d.startDate), d.endDate ? fmt(d.endDate) : '', d.notes])]]])); }
 
 async function pickFile(accept) {
-  if (isElectron) { const f = await window.electronAPI.openFile({ filters: [{ name: 'Dosya', extensions: accept.split(',').map(x => x.replace('.', '')) }] }); if (!f) return null; const bin = atob(f.dataBase64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return { name: f.name, data: u8 }; }
+  if (isElectron) { const f = await window.electronAPI.openFile({ filters: [{ name: t('Dosya'), extensions: accept.split(',').map(x => x.replace('.', '')) }] }); if (!f) return null; const bin = atob(f.dataBase64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return { name: f.name, data: u8 }; }
   return new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = async () => { const f = i.files[0]; if (!f) return res(null); res({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) }); }; i.click(); });
 }
+const b64 = u8 => { let bin = ''; for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(bin); };
 async function importPersonsExcel() {
   const f = await pickFile('.xlsx,.xls'); if (!f) return;
   const wb = XLSX.read(f.data, { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
   const hdr = rows[0].map(x => String(x).trim());
   const col = (names, idx) => { const i = hdr.findIndex(hh => names.some(n => hh.includes(n))); return i >= 0 ? i : idx; };
-  const C = { seq: col(['تسلسل', 'Sıra'], 0), reg: col(['الرقم', 'Sicil'], 1), title: col(['المسمى', 'Unvan'], 2), name: col(['الأسم', 'الاسم', 'Ad Soyad'], 3), mother: col(['الأم', 'Anne'], 4), nick: col(['اللقب', 'Lakap'], 5), grp: col(['فئة', 'Grup'], 6), home: col(['السكن', 'Ev'], 7), line: col(['خط', 'Hat'], 8), from: col(['من'], 9), to: col(['الى', 'إلى'], 10), notes: col(['ملاحظات', 'Not'], 11), work: col(['İşyeri'], -1) };
+  const C = { seq: col(['تسلسل', 'Sıra', 'No'], 0), reg: col(['الرقم', 'Sicil', 'Reg'], 1), title: col(['المسمى', 'Unvan', 'Title'], 2), name: col(['الأسم', 'الاسم', 'Ad Soyad', 'Name'], 3), mother: col(['الأم', 'Anne', 'Mother'], 4), nick: col(['اللقب', 'Lakap', 'Nick'], 5), grp: col(['فئة', 'Grup', 'Group'], 6), home: col(['السكن', 'Ev', 'Home'], 7), line: col(['خط', 'Hat', 'Line'], 8), from: col(['من'], 9), to: col(['الى', 'إلى'], 10), notes: col(['ملاحظات', 'Not'], 11), work: col(['İşyeri', 'Work'], -1) };
   const clean = v => String(v ?? '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
   const findPlace = (name, type) => { if (!name) return ''; let p = S.places.find(x => x.name === name); if (!p) { p = { id: uid('p'), name, type: type || 'home', exempt: null }; S.places.push(p); } return p.id; };
   let added = 0, updated = 0;
   rows.slice(1).forEach(r => {
     const name = clean(r[C.name]); if (!name) return;
-    const grp = clean(r[C.grp]); const from = clean(r[C.from]), to = clean(r[C.to]);
-    let work = C.work >= 0 ? clean(r[C.work]) : (grp.startsWith('A') ? from : grp.startsWith('B') ? to : '');
+    const grpRaw = clean(r[C.grp]); const grp = /^A/i.test(grpRaw) ? 'A' : /^B/i.test(grpRaw) ? 'B' : grpRaw; const from = clean(r[C.from]), to = clean(r[C.to]);
+    const work = C.work >= 0 ? clean(r[C.work]) : (grp.startsWith('A') ? from : grp.startsWith('B') ? to : '');
     const wp = workPlaces().find(w => work && (work.includes(w.name) || w.name.includes(work) || (work.includes('القادسية') && w.name.includes('القادسية')) || (work.includes('حماة') && w.name.includes('حماة'))));
     const reg = clean(r[C.reg]);
     let p = S.persons.find(x => (reg && x.regNo === reg) || x.name === name);
-    const isNew = !p; if (isNew) { p = { id: uid('u'), exempt: null, active: true, lineId: '' }; S.persons.push(p); added++; } else updated++;
-    Object.assign(p, { seq: clean(r[C.seq]) || p.seq, regNo: reg || p.regNo, title: clean(r[C.title]), name, mother: clean(r[C.mother]), nickname: clean(r[C.nick]), group: GROUPS_DEFAULT.includes(grp) || groupById(grp) ? grp : p.group || '', notes: clean(r[C.notes]) });
+    if (!p) { p = { id: uid('u'), exempt: null, active: true, lineId: '' }; S.persons.push(p); added++; } else updated++;
     if (grp && !groupById(grp)) S.groups.push({ id: grp, name: grp, status: 'home', statusSince: todayISO(), nextChange: '', customDates: [] });
+    Object.assign(p, { seq: clean(r[C.seq]) || p.seq, regNo: reg || p.regNo, title: clean(r[C.title]), name, mother: clean(r[C.mother]), nickname: clean(r[C.nick]), group: groupById(grp) ? grp : p.group || '', subgroup: grpRaw !== grp ? grpRaw : '', notes: clean(r[C.notes]) });
     const home = clean(r[C.home]); if (home) p.homeId = findPlace(home, 'home');
     if (wp) p.workId = wp.id;
     const ln = clean(r[C.line]); if (ln) { const L = S.lines.find(x => x.name === ln) || S.lines.find(x => ln.includes('حلب') ? x.name.includes('Halep') : (ln.includes('الشام') || ln.includes('درعا')) ? (wp && wp.name.includes('حماة') ? x.name.includes('Şam') : x.name.includes('Dera')) : (ln.includes('الجسر') || ln.includes('ادلب')) ? (wp && wp.name.includes('حماة') ? x.name.includes('Hama') && x.name.includes('Cisr') : x.name.includes('Kadısiye') && x.name.includes('Cisr')) : false); if (L) { p.lineId = L.id; if (p.homeId && !L.stops.includes(p.homeId)) L.stops.push(p.homeId); } }
   });
-  save(); render(); toast(`İçe aktarıldı: ${added} yeni, ${updated} güncellendi`);
+  save(); render(); toast(t('İçe aktarıldı: {0} yeni, {1} güncellendi', added, updated));
 }
 
 // ---------- Ayarlar ----------
 function renderSettings(m) {
   const s = S.settings;
-  m.innerHTML = `<h1>Ayarlar</h1>
+  m.innerHTML = `<h1>${t('Ayarlar')}</h1>
   <div class="grid c2">
   <div>
-    <div class="card"><h2>Genel</h2><div class="grid c2">
-      <label class="f">Kurum / sistem adı<input id="s_org" value="${h(s.orgName)}"></label>
-      <label class="f">İdareci adı<input id="s_admin" dir="auto" value="${h(s.adminName)}"></label>
-      <label class="f">İdareci şifresi (boş = şifresiz)<input id="s_pin" type="password" value="${h(s.pin)}"></label></div>
-      <label class="f" style="margin-top:8px">Muaf yer anahtar kelimeleri (virgülle)<textarea id="s_ex" rows="2" dir="auto">${h((s.exemptKeywords || []).join(', '))}</textarea></label>
-      <div class="row" style="margin-top:10px"><button class="btn primary" id="sSave">Kaydet</button></div></div>
-    <div class="card"><h2>Antetler</h2>
-      <p class="small muted">Çıktılarda kullanılacak antet. Varsayılan (favori) antet yıldızla işaretlidir; yazdırırken başka antet de seçilebilir.</p>
-      ${S.letterheads.map(l => `<div class="drv ${l.id === s.defaultLetterheadId ? 'on' : ''}"><span class="nm">${l.id === s.defaultLetterheadId ? '⭐ ' : ''}${h(l.name)} <span class="small muted">${l.kind === 'image' ? '(resim)' : '(şablon)'}</span></span><button class="btn sm" data-lhdef="${l.id}">Favori yap</button><button class="btn sm" data-lhedit="${l.id}">Düzenle</button>${S.letterheads.length > 1 ? `<button class="btn sm danger" data-lhdel="${l.id}">✕</button>` : ''}</div>`).join('')}
-      <div class="row" style="margin-top:8px"><button class="btn" id="lhAddImg">+ Resimden antet ekle</button><button class="btn" id="lhAddTxt">+ Yazılı antet ekle</button></div>
+    <div class="card"><h2>${t('Genel')}</h2><div class="grid c2">
+      <label class="f">${t('Kurum / sistem adı')}<input id="s_org" dir="auto" value="${h(s.orgName)}"></label>
+      <label class="f">${t('İdareci adı')}<input id="s_admin" dir="auto" value="${h(s.adminName)}"></label>
+      <label class="f">${t('İdareci şifresi (boş = şifresiz)')}<input id="s_pin" type="password" value="${h(s.pin)}"></label>
+      <label class="f">${t('Dil')}<select id="s_lang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === LANG ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
+      <label class="f" style="margin-top:8px">${t('Muaf yer anahtar kelimeleri (virgülle)')}<textarea id="s_ex" rows="2" dir="auto">${h((s.exemptKeywords || []).join(', '))}</textarea></label>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="sSave">${t('Kaydet')}</button></div></div>
+    <div class="card"><h2>${t('Antetler')}</h2>
+      <p class="small muted">${t('Çıktılarda kullanılacak antet. Varsayılan (favori) antet yıldızla işaretlidir; yazdırırken başka antet de seçilebilir.')}</p>
+      ${S.letterheads.map(l => `<div class="drv ${l.id === s.defaultLetterheadId ? 'on' : ''}"><span class="nm">${l.id === s.defaultLetterheadId ? '⭐ ' : ''}${h(l.name)} <span class="small muted">${l.kind === 'image' ? '(' + t('resim') + ')' : '(' + t('şablon') + ')'}</span></span><button class="btn sm" data-lhdef="${l.id}">${t('Favori yap')}</button><button class="btn sm" data-lhedit="${l.id}">${t('Düzenle')}</button>${S.letterheads.length > 1 ? `<button class="btn sm danger" data-lhdel="${l.id}">✕</button>` : ''}</div>`).join('')}
+      <div class="row" style="margin-top:8px"><button class="btn" id="lhAddImg">+ ${t('Resimden antet ekle')}</button><button class="btn" id="lhAddTxt">+ ${t('Yazılı antet ekle')}</button></div>
       <div class="lh-prev"><div class="print-area" style="display:block">${letterheadHtml(s.defaultLetterheadId).replace('<div class="wm"></div>', '')}</div></div></div>
   </div>
   <div>
-    <div class="card"><h2>Güncelleme</h2>
-      <div class="kv"><b>Uygulama sürümü</b><span id="curVer">${APP_VERSION}</span><b>Güncelleme adresi</b><span></span></div>
-      <input id="s_upd" value="${h(s.updateUrl)}" style="width:100%;margin:6px 0">
-      <div class="row"><button class="btn primary" id="updCheck">Güncellemeyi kontrol et</button><button class="btn" id="updReset">Fabrika sürümüne dön</button></div>
+    <div class="card"><h2>${t('Güncelleme')}</h2>
+      <div class="kv"><b>${t('Uygulama sürümü')}</b><span id="curVer">${APP_VERSION}</span><b>${t('Güncelleme adresi')}</b><span></span></div>
+      <input id="s_upd" value="${h(s.updateUrl)}" style="width:100%;margin:6px 0" dir="ltr">
+      <div class="row"><button class="btn primary" id="updCheck">${t('Güncellemeyi kontrol et')}</button><button class="btn" id="updReset">${t('Fabrika sürümüne dön')}</button></div>
       <div id="updMsg" class="small" style="margin-top:8px"></div>
-      ${isElectron ? '' : '<p class="small muted">Tarayıcı modunda güncelleme yapılamaz; masaüstü uygulamasını kullanın.</p>'}</div>
-    <div class="card"><h2>Yedekleme</h2>
-      <div class="row"><button class="btn" id="bkExp">Yedek al (JSON)</button><button class="btn" id="bkImp">Yedekten geri yükle</button><button class="btn danger" id="bkReset">Başlangıç verisine dön</button></div>
+      ${isElectron ? '' : `<p class="small muted">${t('Tarayıcı modunda güncelleme yapılamaz; masaüstü uygulamasını kullanın.')}</p>`}</div>
+    <div class="card"><h2>${t('Yedekleme')}</h2>
+      <div class="row"><button class="btn" id="bkExp">${t('Yedek al (JSON)')}</button><button class="btn" id="bkImp">${t('Yedekten geri yükle')}</button><button class="btn danger" id="bkReset">${t('Başlangıç verisine dön')}</button></div>
       <p class="small muted" id="dataPath"></p></div>
-    <div class="card"><h2>Hakkında</h2><p class="small">Merkezi Servis Hizmeti · v${APP_VERSION}<br>Vardiya: ${s.cycleDays} günlük döngü · Şoför: ${S.driver.cycleDays} günlük döngü<br>Kişi: ${S.persons.length} · Yer: ${S.places.length} · Hat: ${S.lines.length}</p></div>
+    <div class="card"><h2>${t('Hakkında')}</h2><p class="small">Merkezi Servis · v${APP_VERSION}<br>${t('Vardiya')}: ${s.cycleDays} ${t('günlük döngü')} · ${t('Şoför')}: ${S.driver.cycleDays} ${t('günlük döngü')}<br>${t('Kişi')}: ${S.persons.length} · ${t('Yer')}: ${S.places.length} · ${t('Hat')}: ${S.lines.length}</p></div>
   </div></div>`;
-  $('#sSave').onclick = () => { s.orgName = $('#s_org').value.trim(); s.adminName = $('#s_admin').value.trim(); s.pin = $('#s_pin').value; s.exemptKeywords = $('#s_ex').value.split(',').map(x => x.trim()).filter(Boolean); s.updateUrl = $('#s_upd').value.trim() || DEFAULT_UPDATE_URL; save(); render(); toast('Kaydedildi'); };
+  $('#sSave').onclick = () => { s.orgName = $('#s_org').value.trim(); s.adminName = $('#s_admin').value.trim(); s.pin = $('#s_pin').value; s.lang = $('#s_lang').value; s.exemptKeywords = $('#s_ex').value.split(',').map(x => x.trim()).filter(Boolean); s.updateUrl = $('#s_upd').value.trim() || DEFAULT_UPDATE_URL; save(); applyLang(s.lang); renderNav(); render(); toast(t('Kaydedildi')); };
   $$('[data-lhdef]', m).forEach(b => b.onclick = () => { s.defaultLetterheadId = b.dataset.lhdef; save(); render(); });
-  $$('[data-lhdel]', m).forEach(b => b.onclick = () => confirmDlg('Antet silinsin mi?', () => { S.letterheads = S.letterheads.filter(x => x.id !== b.dataset.lhdel); if (s.defaultLetterheadId === b.dataset.lhdel) s.defaultLetterheadId = S.letterheads[0].id; save(); render(); }));
+  $$('[data-lhdel]', m).forEach(b => b.onclick = () => confirmDlg(t('Antet silinsin mi?'), () => { S.letterheads = S.letterheads.filter(x => x.id !== b.dataset.lhdel); if (s.defaultLetterheadId === b.dataset.lhdel) s.defaultLetterheadId = S.letterheads[0].id; save(); render(); }));
   $$('[data-lhedit]', m).forEach(b => b.onclick = () => editLetterhead(b.dataset.lhedit));
-  $('#lhAddTxt').onclick = () => { const l = { id: uid('lh'), name: 'Yeni antet', kind: 'builtin', left: '', right: '', logo: 'assets/logo.png', watermark: true, footer: '' }; S.letterheads.push(l); save(); editLetterhead(l.id); };
-  $('#lhAddImg').onclick = async () => { const f = await pickFile('.png,.jpg,.jpeg'); if (!f) return; const b64 = btoa(String.fromCharCode(...f.data)); const mime = f.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'; S.letterheads.push({ id: uid('lh'), name: f.name, kind: 'image', imageData: `data:${mime};base64,${b64}`, watermark: false }); save(); render(); toast('Antet eklendi'); };
+  $('#lhAddTxt').onclick = () => { const l = { id: uid('lh'), name: t('Yeni antet'), kind: 'builtin', left: '', right: '', logo: 'assets/logo.png', watermark: true, footer: '' }; S.letterheads.push(l); save(); editLetterhead(l.id); };
+  $('#lhAddImg').onclick = async () => { const f = await pickFile('.png,.jpg,.jpeg'); if (!f) return; const mime = f.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'; S.letterheads.push({ id: uid('lh'), name: f.name, kind: 'image', imageData: `data:${mime};base64,${b64(f.data)}`, watermark: false }); save(); render(); toast(t('Antet eklendi')); };
   $('#bkExp').onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
-  $('#bkImp').onclick = async () => { const f = await pickFile('.json'); if (!f) return; try { const st = JSON.parse(new TextDecoder().decode(f.data)); if (!st.persons) throw 0; confirmDlg('Mevcut veriler yedekteki verilerle değiştirilecek. Devam?', () => { S = st; save(true); render(); toast('Geri yüklendi'); }); } catch (e) { toast('Geçersiz yedek dosyası', true); } };
-  $('#bkReset').onclick = () => confirmDlg('Tüm veriler silinip Excel\'den gelen başlangıç verisi yüklenecek. Devam?', async () => { S = await loadSeed(emptyState()); save(true); render(); });
-  if (isElectron) { window.electronAPI.dataPath().then(p => { $('#dataPath').textContent = 'Veri dosyası: ' + p; }); window.electronAPI.appInfo().then(i => { $('#curVer').textContent = i.activeVersion + (i.updatedCopy ? ' (güncellenmiş)' : '') ; }); }
+  $('#bkImp').onclick = async () => { const f = await pickFile('.json'); if (!f) return; try { const st = JSON.parse(new TextDecoder().decode(f.data)); if (!st.persons) throw 0; confirmDlg(t('Mevcut veriler yedekteki verilerle değiştirilecek. Devam?'), () => { S = st; save(true); applyLang(S.settings.lang); renderNav(); render(); toast(t('Geri yüklendi')); }); } catch (e) { toast(t('Geçersiz yedek dosyası'), true); } };
+  $('#bkReset').onclick = () => confirmDlg(t("Tüm veriler silinip Excel'den gelen başlangıç verisi yüklenecek. Devam?"), async () => { const lang = S.settings.lang; S = await loadSeed(emptyState()); S.settings.lang = lang; save(true); mapFitted = false; render(); });
+  if (isElectron) { window.electronAPI.dataPath().then(p => { $('#dataPath').textContent = t('Veri dosyası') + ': ' + p; }); window.electronAPI.appInfo().then(i => { $('#curVer').textContent = i.activeVersion + (i.updatedCopy ? ' (' + t('güncellenmiş') + ')' : ''); }); }
   $('#updCheck').onclick = async () => {
-    const msg = $('#updMsg'); if (!isElectron) return msg.textContent = 'Sadece masaüstü uygulamasında.';
-    msg.textContent = 'Kontrol ediliyor…';
+    const msg = $('#updMsg'); if (!isElectron) return msg.textContent = t('Sadece masaüstü uygulamasında.');
+    msg.textContent = t('Kontrol ediliyor…');
     try {
       const r = await window.electronAPI.checkUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL);
-      if (!r.available) return msg.innerHTML = `Güncel. (Mevcut ${r.current}, sunucu ${r.remote})`;
-      msg.innerHTML = `Yeni sürüm bulundu: <b>${h(r.remote)}</b> (mevcut ${h(r.current)})<br>${h(r.notes)}<br><button class="btn primary sm" id="updGo">Şimdi güncelle</button>`;
-      $('#updGo').onclick = async () => { msg.textContent = 'İndiriliyor…'; try { const a = await window.electronAPI.applyUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); msg.textContent = 'Sürüm ' + a.version + ' yüklendi, uygulama yeniden başlatılıyor…'; save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = 'Güncelleme hatası: ' + e.message; } };
-    } catch (e) { msg.textContent = 'Kontrol edilemedi: ' + (e.message || e); }
+      if (!r.available) return msg.innerHTML = `${t('Güncel.')} (${r.current} / ${r.remote})`;
+      msg.innerHTML = `${t('Yeni sürüm bulundu')}: <b>${h(r.remote)}</b> (${t('mevcut')} ${h(r.current)})<br>${h(r.notes)}<br><button class="btn primary sm" id="updGo">${t('Şimdi güncelle')}</button>`;
+      $('#updGo').onclick = async () => { msg.textContent = t('İndiriliyor…'); try { const a = await window.electronAPI.applyUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
+    } catch (e) { msg.textContent = t('Kontrol edilemedi') + ': ' + (e.message || e); }
   };
-  $('#updReset').onclick = async () => { if (!isElectron) return; await window.electronAPI.resetUpdate(); toast('Fabrika sürümüne dönüldü, yeniden başlatılıyor'); setTimeout(() => window.electronAPI.relaunch(), 600); };
+  $('#updReset').onclick = async () => { if (!isElectron) return; await window.electronAPI.resetUpdate(); toast(t('Fabrika sürümüne dönüldü, yeniden başlatılıyor')); setTimeout(() => window.electronAPI.relaunch(), 600); };
 }
 function editLetterhead(id) {
   const l = S.letterheads.find(x => x.id === id);
-  modal(`<h2>Antet düzenle</h2><div class="grid c2"><label class="f">Antet adı<input id="lh_name" value="${h(l.name)}"></label>
-  <label class="chk" style="margin-top:16px"><input type="checkbox" id="lh_wm" ${l.watermark ? 'checked' : ''}> Arka plan filigranı (desen)</label>
-  ${l.kind === 'builtin' ? `<label class="f">Sol metin (satır satır)<textarea id="lh_left" rows="4">${h(l.left)}</textarea></label><label class="f">Sağ metin (Arapça, satır satır)<textarea id="lh_right" rows="4" dir="rtl">${h(l.right)}</textarea></label><label class="f">Alt bilgi<input id="lh_foot" dir="auto" value="${h(l.footer || '')}"></label>` : ''}</div>
-  ${l.kind === 'builtin' ? '<div class="row" style="margin-top:8px"><button class="btn" id="lh_logo">Logo değiştir (PNG/JPG)</button></div>' : ''}
-  <div class="actions"><button class="btn" data-close>Vazgeç</button><button class="btn primary" id="lh_save">Kaydet</button></div>`, (r, close) => {
+  modal(`<h2>${t('Antet düzenle')}</h2><div class="grid c2"><label class="f">${t('Antet adı')}<input id="lh_name" value="${h(l.name)}"></label>
+  <label class="chk" style="margin-top:16px"><input type="checkbox" id="lh_wm" ${l.watermark ? 'checked' : ''}> ${t('Arka plan filigranı (desen)')}</label>
+  ${l.kind === 'builtin' ? `<label class="f">${t('Sol metin (satır satır)')}<textarea id="lh_left" rows="4">${h(l.left)}</textarea></label><label class="f">${t('Sağ metin (Arapça, satır satır)')}<textarea id="lh_right" rows="4" dir="rtl">${h(l.right)}</textarea></label><label class="f">${t('Alt bilgi')}<input id="lh_foot" dir="auto" value="${h(l.footer || '')}"></label>` : ''}</div>
+  ${l.kind === 'builtin' ? `<div class="row" style="margin-top:8px"><button class="btn" id="lh_logo">${t('Logo değiştir (PNG/JPG)')}</button></div>` : ''}
+  <div class="actions">${cancelBtn()}<button class="btn primary" id="lh_save">${t('Kaydet')}</button></div>`, (r, close) => {
     $('#lh_save', r).onclick = () => { l.name = $('#lh_name', r).value.trim() || l.name; l.watermark = $('#lh_wm', r).checked; if (l.kind === 'builtin') { l.left = $('#lh_left', r).value; l.right = $('#lh_right', r).value; l.footer = $('#lh_foot', r).value; } save(); close(); render(); };
-    const lg = $('#lh_logo', r); if (lg) lg.onclick = async () => { const f = await pickFile('.png,.jpg,.jpeg'); if (!f) return; const b64 = btoa(String.fromCharCode(...f.data)); l.logo = `data:${f.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'};base64,${b64}`; toast('Logo değiştirildi (Kaydet)'); };
+    const lg = $('#lh_logo', r); if (lg) lg.onclick = async () => { const f = await pickFile('.png,.jpg,.jpeg'); if (!f) return; l.logo = `data:${f.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'};base64,${b64(f.data)}`; toast(t('Logo değiştirildi')); };
   });
 }
 
 // ---------------- başlangıç ----------------
 (async function init() {
   S = await loadState();
-  $('#verInfo').textContent = 'v' + APP_VERSION + (isElectron ? '' : ' · tarayıcı');
-  $('#brandSub').textContent = S.settings.orgName;
-  $$('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
-  const start = () => { $('#lock').classList.add('hidden'); render(); if (S.firstRun) { delete S.firstRun; save(true); toast('Excel\'den gelen başlangıç verisi yüklendi'); } };
+  applyLang(S.settings.lang || 'tr');
+  renderNav();
+  $('#langSel').onchange = e => { S.settings.lang = e.target.value; save(); applyLang(S.settings.lang); renderNav(); render(); };
+  const start = () => { $('#lock').classList.add('hidden'); render(); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
   if (S.settings.pin) {
-    $('#lock').classList.remove('hidden');
-    const tryPin = () => { if ($('#lockPin').value === S.settings.pin) start(); else $('#lockErr').textContent = 'Hatalı şifre'; };
+    $('#lock').classList.remove('hidden'); $('#lockTitle').textContent = t('İdareci şifresi'); $('#lockBtn').textContent = t('Giriş');
+    const tryPin = () => { if ($('#lockPin').value === S.settings.pin) start(); else $('#lockErr').textContent = t('Hatalı şifre'); };
     $('#lockBtn').onclick = tryPin; $('#lockPin').onkeydown = e => { if (e.key === 'Enter') tryPin(); }; $('#lockPin').focus();
   } else start();
 })();
