@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "notes": "İlk sürüm.",
+  "files": [
+    "www/index.html",
+    "www/app.js",
+    "www/style.css"
+  ]
+}

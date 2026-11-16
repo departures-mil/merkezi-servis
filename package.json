@@ -1,0 +1,35 @@
+{
+  "name": "merkezi-servis",
+  "productName": "Merkezi Servis",
+  "version": "1.0.0",
+  "description": "Merkezi Servis Hizmeti yönetim uygulaması",
+  "main": "main.js",
+  "author": "departures-mil",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.merkeziservis.app",
+    "productName": "Merkezi Servis",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "www/**/*"
+    ],
+    "win": {
+      "target": [
+        "zip"
+      ],
+      "signAndEditExecutable": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}
