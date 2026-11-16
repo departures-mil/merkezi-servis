@@ -2,6 +2,7 @@
 'use strict';
 window.I18N = {
 en: {
+"Kadısiye merkezi":"Qadisiyah center","Hama merkezi":"Hama center","Bugün nerede":"Where today","Şu an kim nerede":"Who is where now",
 "Servis kaydı":"Service record","Servise dahil":"Included in service",
 "Serviste (yolda)":"On the bus","Elle verildi; geçerli":"Set manually; valid","tarihine kadar":"until","süresiz":"indefinitely","Gruba göre otomatik":"Automatic by group","Otomatik":"Automatic","Elle değiştirilenler":"Manually changed","Bugünkü durum":"Today's status","Otomatik (gruba göre)":"Automatic (by group)","Elle verilen durum bir sonraki değişim gününe kadar geçerlidir; \"Serviste (yolda)\" sadece bugün için.":"A manual status lasts until the next changeover day; \"On the bus\" is for today only.",
 "Sürüm {0} indirildi; uygulama birazdan kendini yenileyecek":"Version {0} downloaded; the app will refresh itself shortly","Otomatik güncelleme":"Auto-update","kapalı":"off","açık":"on","son kontrol":"last check","hazır":"ready","Şimdi yeniden başlat":"Restart now","indirildi":"downloaded","Uygulama birazdan kendini yenileyecek":"The app will refresh itself shortly","Otomatik güncelleme (açılışta ve 20 dakikada bir)":"Auto-update (at start and every 20 minutes)",
@@ -37,6 +38,7 @@ en: {
 'Şimdi güncelle':'Update now','Şoför':'Driver','Şoför Nöbet Çizelgesi':'Driver Duty Roster','Şoför döngüsü (gün)':'Driver cycle (days)','Şoför ekibi':'Driver team','Şoför ekle':'Add driver','Şoför listesi':'Driver list','Şoför nöbet çizelgesi':'Driver duty roster','Şoför silinsin mi?':'Delete this driver?','Şoförler':'Drivers','Şoförler – bugün':'Drivers – today','Şoförü düzenle':'Edit driver','Şu an':'Now','Şu an görevde olan ekip':'Team currently on duty','şablon':'template','— mevcut yerden durak ekle —':'— add stop from existing place —','— seçiniz —':'— select —'
 },
 ar: {
+"Kadısiye merkezi":"مركز القادسية","Hama merkezi":"مركز حماة","Bugün nerede":"أين اليوم","Şu an kim nerede":"من أين الآن",
 "Servis kaydı":"سجل النقل","Servise dahil":"مشمول بالنقل",
 "Serviste (yolda)":"في الحافلة (على الطريق)","Elle verildi; geçerli":"محدد يدوياً؛ صالح","tarihine kadar":"حتى","süresiz":"بلا مدة","Gruba göre otomatik":"تلقائي حسب الفئة","Otomatik":"تلقائي","Elle değiştirilenler":"المعدّلون يدوياً","Bugünkü durum":"حالة اليوم","Otomatik (gruba göre)":"تلقائي (حسب الفئة)","Elle verilen durum bir sonraki değişim gününe kadar geçerlidir; \"Serviste (yolda)\" sadece bugün için.":"الحالة اليدوية صالحة حتى يوم التبديل التالي؛ \"في الحافلة\" لليوم فقط.",
 "Sürüm {0} indirildi; uygulama birazdan kendini yenileyecek":"تم تنزيل الإصدار {0}؛ سيتجدد التطبيق تلقائياً بعد قليل","Otomatik güncelleme":"التحديث التلقائي","kapalı":"متوقف","açık":"مفعّل","son kontrol":"آخر تحقق","hazır":"جاهز","Şimdi yeniden başlat":"إعادة التشغيل الآن","indirildi":"تم التنزيل","Uygulama birazdan kendini yenileyecek":"سيتجدد التطبيق تلقائياً بعد قليل","Otomatik güncelleme (açılışta ve 20 dakikada bir)":"التحديث التلقائي (عند التشغيل وكل 20 دقيقة)",

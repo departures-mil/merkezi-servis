@@ -226,3 +226,6 @@ select.pst.st-work{background:#dcfce7;color:#15803d;border-color:#86efac}
 select.pst.st-home{background:#e5e7eb;color:#374151}
 select.pst.st-transit{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}
 select.pst.man{outline:2px dashed #b45309;outline-offset:1px}
+.locstat{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;text-decoration:none;color:inherit}
+.locstat:hover{background:#fafaf5;border-color:#c9bd92}
+.locstat .v{font-size:24px}
