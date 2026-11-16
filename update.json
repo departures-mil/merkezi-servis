@@ -1,6 +1,6 @@
 {
-  "version": "1.3.2",
-  "notes": "Güncellemeler GitHub önbelleğine takılmadan anında gelir (commit'e sabitli indirme).",
+  "version": "1.4.0",
+  "notes": "Kişi bazlı durum: İşte / Evde / Serviste (yolda), sefer planına ve sayımlara yansır.",
   "files": [
     "www/index.html",
     "www/app.js",

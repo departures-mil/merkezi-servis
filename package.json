@@ -1,7 +1,7 @@
 {
   "name": "merkezi-servis",
   "productName": "Merkezi Servis",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Merkezi Servis Hizmeti yönetim uygulaması",
   "main": "main.js",
   "author": "departures-mil",

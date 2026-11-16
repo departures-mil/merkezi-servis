@@ -182,7 +182,7 @@ function mountMap(container, opts) {
   function showPop(pid, cpt) {
     const p = placeById(pid);
     const ps = S.persons.filter(q => q.homeId === pid || (p.type === 'work' && q.workId === pid));
-    const ins = ps.filter(personInService); const atWork = ins.filter(q => stWork(groupById(q.group), d0)).length;
+    const ins = ps.filter(personInService); const atWork = ins.filter(q => personStatusAt(q, d0) === 'work').length;
     const Ls = S.lines.filter(Lx => Lx.stops.includes(pid) || Lx.endA === pid);
     pop.innerHTML = `<div class="row between"><b dir="auto">${h(p.name)}</b><button class="btn sm" id="popX">✕</button></div>
       <div class="small muted">${p.type === 'work' ? t('İşyeri') : t('Ev')} · ${Ls.map(Lx => h(lname(Lx))).join(', ') || t('hatta bağlı değil')}${placeExempt(p) && p.type !== 'work' ? ' · <span class="badge warn">' + t('muaf yer') + '</span>' : ''}</div>

@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.4.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'B'];
@@ -124,6 +124,24 @@ function driverNextChange(from) { const l = changeDatesBetween(S.driver, S.drive
 function changesOn(dateISO) { return S.groups.filter(g => changeDatesBetween(g, S.settings.cycleDays, dateISO, dateISO).length > 0); }
 function upcomingChangeDates(n) { const set = new Set(); const d0 = todayISO(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, d0, addDays(d0, 400)).forEach(d => set.add(d))); return Array.from(set).sort().slice(0, n || 12); }
 const stWork = (g, d) => g && groupStatusAt(g, d) === 'work';
+// Kişi bazlı durum: elle verilen durum bir sonraki değişime kadar (serviste/yolda: sadece o gün) geçerli
+function personOverrideUntil(p) {
+  const o = p.statusOverride; if (!o || !o.status || !o.from) return '';
+  if (o.status === 'transit') return addDays(o.from, 1);
+  const g = groupById(p.group); return g ? groupNextChange(g, addDays(o.from, 1)) : '';
+}
+function personStatusAt(p, d) {
+  const o = p.statusOverride;
+  if (o && o.status && o.from && d >= o.from) { const until = personOverrideUntil(p); if (!until || d < until) return o.status; }
+  const g = groupById(p.group); return g ? groupStatusAt(g, d) : '';
+}
+const STATUS_LBL = { work: 'İşte', home: 'Evde', transit: 'Serviste (yolda)' };
+function statusPill(p, d) {
+  const st = personStatusAt(p, d); if (!st) return '';
+  const cls = st === 'work' ? 'ok' : st === 'transit' ? 'info' : 'gray';
+  const man = p.statusOverride && p.statusOverride.status && personStatusAt(p, d) === p.statusOverride.status && d >= p.statusOverride.from;
+  return `<span class="badge ${cls}">${t(STATUS_LBL[st])}${man ? ' ✎' : ''}</span>`;
+}
 
 // ---------------- sefer planı ----------------
 function planFor(dateISO) {
@@ -135,7 +153,7 @@ function planFor(dateISO) {
     const idx = s => { const i = L.stops.indexOf(s); return i < 0 ? 999 : i; };
     const splitIdx = cfg.buses === 2 && cfg.firstStopBus1 ? idx(cfg.firstStopBus1) : -1;
     const busOf = sid => { if (cfg.buses !== 2) return 1; const ov = (cfg.stopBus || {})[sid]; if (ov === 1 || ov === 2) return ov; const i = idx(sid); return i === 999 ? 2 : (i >= splitIdx ? 1 : 2); };
-    const rows = persons.map(p => { const g = groupById(p.group); const prev = g ? groupPrevStatus(g, dateISO) : 'work'; return { p, dir: prev === 'work' ? 'toHome' : 'toWork', stopId: p.homeId, bus: busOf(p.homeId) }; });
+    const rows = persons.map(p => { const g = groupById(p.group); const next = g ? groupStatusAt(g, dateISO) : 'home'; const prev = personStatusAt(p, addDays(dateISO, -1)); if (prev === next) return null; return { p, dir: next === 'home' ? 'toHome' : 'toWork', stopId: p.homeId, bus: busOf(p.homeId) }; }).filter(Boolean);
     const byStop = {}; rows.forEach(r => { (byStop[r.stopId] = byStop[r.stopId] || []).push(r); });
     const stopList = L.stops.filter(s => byStop[s]).concat(Object.keys(byStop).filter(s => !L.stops.includes(s)));
     result.lines.push({ line: L, cfg, rows, byStop, stopList, toHome: rows.filter(r => r.dir === 'toHome').length, toWork: rows.filter(r => r.dir === 'toWork').length });
@@ -294,7 +312,7 @@ function renderDash(m) {
     </div>
     <div class="card"><h2>${t('Hatlar')}</h2>
       <table><tr><th>${t('Hat')}</th><th>${t('Durak')}</th><th>${t('Kişi (serviste)')}</th><th>${t('İşte / Evde')}</th></tr>
-      ${S.lines.map(L => { const ps = inService.filter(p => p.lineId === L.id); const w = ps.filter(p => stWork(groupById(p.group), d0)).length; return `<tr><td><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))}</td><td>${L.stops.length}</td><td>${ps.length}</td><td>${w} / ${ps.length - w}</td></tr>`; }).join('')}
+      ${S.lines.map(L => { const ps = inService.filter(p => p.lineId === L.id); const w = ps.filter(p => personStatusAt(p, d0) === 'work').length; return `<tr><td><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))}</td><td>${L.stops.length}</td><td>${ps.length}</td><td>${w} / ${ps.length - w}</td></tr>`; }).join('')}
       </table>
     </div>
   </div>`;
@@ -312,7 +330,7 @@ function renderPersons(m) {
     <select id="pg"><option value="">${t('Tüm gruplar')}</option>${S.groups.map(g => `<option ${pf.group === g.id ? 'selected' : ''}>${h(g.id)}</option>`).join('')}<option value="-" ${pf.group === '-' ? 'selected' : ''}>${t('Grupsuz')}</option></select>
     <select id="pl">${opt(S.lines, pf.line, x => lname(x), x => x.id, t('Tüm hatlar'))}</select>
     <select id="pw">${opt(workPlaces(), pf.work, x => x.name, x => x.id, t('Tüm işyerleri'))}</select>
-    <select id="ps"><option value="">${t('Tüm durumlar')}</option><option value="service" ${pf.status === 'service' ? 'selected' : ''}>${t('Serviste')}</option><option value="exempt" ${pf.status === 'exempt' ? 'selected' : ''}>${t('Muaf')}</option><option value="inactive" ${pf.status === 'inactive' ? 'selected' : ''}>${t('Sistemden çıkarılmış')}</option></select>
+    <select id="ps"><option value="">${t('Tüm durumlar')}</option><option value="service" ${pf.status === 'service' ? 'selected' : ''}>${t('Servise dahil')}</option><option value="exempt" ${pf.status === 'exempt' ? 'selected' : ''}>${t('Muaf')}</option><option value="inactive" ${pf.status === 'inactive' ? 'selected' : ''}>${t('Sistemden çıkarılmış')}</option><option value="st-work" ${pf.status === 'st-work' ? 'selected' : ''}>${t('Bugün')}: ${t('İşte')}</option><option value="st-home" ${pf.status === 'st-home' ? 'selected' : ''}>${t('Bugün')}: ${t('Evde')}</option><option value="st-transit" ${pf.status === 'st-transit' ? 'selected' : ''}>${t('Bugün')}: ${t('Serviste (yolda)')}</option><option value="st-man" ${pf.status === 'st-man' ? 'selected' : ''}>${t('Elle değiştirilenler')}</option></select>
     ${pf.place ? `<span class="pill">${t('Yer')}: <span dir="auto">${h(placeName(pf.place))}</span><button id="pplx">✕</button></span>` : ''}
     <span style="flex:1"></span>
     <button class="btn" id="pImport">${t("Excel'den al")}</button>
@@ -332,19 +350,27 @@ function renderPersons(m) {
       if (pf.status === 'service' && (ex || ia)) return false;
       if (pf.status === 'exempt' && (!ex || ia)) return false;
       if (pf.status === 'inactive' && !ia) return false;
+      if (pf.status && pf.status.startsWith('st-')) { const d0 = todayISO(); if (pf.status === 'st-man') { if (!(p.statusOverride && personStatusAt(p, d0) === p.statusOverride.status && d0 >= p.statusOverride.from)) return false; } else if (personStatusAt(p, d0) !== pf.status.slice(3)) return false; }
       if (q) { const s = [p.name, p.nickname, p.regNo, p.title, placeName(p.homeId), p.mother].join(' ').toLowerCase(); if (!s.includes(q)) return false; }
       return true;
     });
     list.sort((a, b) => (Number(a.seq) || 9999) - (Number(b.seq) || 9999));
     const d0 = todayISO();
-    $('#ptbl').innerHTML = `<tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Lakap')}</th><th>${t('Unvan')}</th><th>${t('Grup')}</th><th>${t('Bugün')}</th><th>${t('Ev (durak)')}</th><th>${t('İşyeri')}</th><th>${t('Hat')}</th><th>${t('Durum')}</th><th></th></tr>` +
+    $('#ptbl').innerHTML = `<tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Lakap')}</th><th>${t('Unvan')}</th><th>${t('Grup')}</th><th>${t('Bugün')}</th><th>${t('Ev (durak)')}</th><th>${t('İşyeri')}</th><th>${t('Hat')}</th><th>${t('Servis kaydı')}</th><th></th></tr>` +
       list.map(p => {
-        const g = groupById(p.group); const st = g ? groupStatusAt(g, d0) : '';
+        const g = groupById(p.group); const gst = g ? groupStatusAt(g, d0) : '';
+        const ov = p.statusOverride && p.statusOverride.status && personStatusAt(p, d0) === p.statusOverride.status && d0 >= p.statusOverride.from ? p.statusOverride.status : '';
+        const cur = personStatusAt(p, d0);
         const ex = personExempt(p), ia = p.active === false;
-        const status = ia ? `<span class="badge bad">${t('Çıkarıldı')}</span>` : ex ? `<span class="badge warn">${t('Muaf')}${p.exempt === true ? ' (' + t('kişi') + ')' : ''}</span>` : `<span class="badge ok">${t('Serviste')}</span>`;
-        return `<tr><td class="num">${h(p.seq)}</td><td>${h(p.regNo)}</td><td dir="auto"><b>${h(p.name)}</b></td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group) || '—'}</td><td>${statusBadge(st)}</td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${status}</td><td><button class="btn sm" data-edit="${p.id}">${t('Düzenle')}</button></td></tr>`;
+        const status = ia ? `<span class="badge bad">${t('Çıkarıldı')}</span>` : ex ? `<span class="badge warn">${t('Muaf')}${p.exempt === true ? ' (' + t('kişi') + ')' : ''}</span>` : `<span class="badge ok">${t('Dahil')}</span>`;
+        return `<tr><td class="num">${h(p.seq)}</td><td>${h(p.regNo)}</td><td dir="auto"><b>${h(p.name)}</b></td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group) || '—'}</td><td><select class="pst st-${cur || 'none'} ${ov ? 'man' : ''}" data-pst="${p.id}" title="${ov ? t('Elle verildi; geçerli') + ': ' + (personOverrideUntil(p) ? fmt(personOverrideUntil(p)) + ' ' + t('tarihine kadar') : t('süresiz')) : t('Gruba göre otomatik')}">
+          <option value="" ${ov ? '' : 'selected'}>${t('Otomatik')}${gst ? ' (' + t(STATUS_LBL[gst]) + ')' : ''}</option>
+          <option value="work" ${ov === 'work' ? 'selected' : ''}>${t('İşte')}</option>
+          <option value="home" ${ov === 'home' ? 'selected' : ''}>${t('Evde')}</option>
+          <option value="transit" ${ov === 'transit' ? 'selected' : ''}>${t('Serviste (yolda)')}</option></select></td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${status}</td><td><button class="btn sm" data-edit="${p.id}">${t('Düzenle')}</button></td></tr>`;
       }).join('') + (list.length ? '' : `<tr><td colspan="12" class="muted">${t('Kayıt yok')}</td></tr>`);
     $$('[data-edit]', m).forEach(b => b.onclick = () => editPerson(b.dataset.edit));
+    $$('[data-pst]', m).forEach(sel => sel.onchange = () => { const p = S.persons.find(x => x.id === sel.dataset.pst); setPersonStatus(p, sel.value); draw(); });
   };
   draw();
   $('#pq').oninput = e => { pf.q = e.target.value; draw(); };
@@ -356,6 +382,10 @@ function renderPersons(m) {
   $('#pAdd').onclick = () => editPerson(null);
   $('#pExport').onclick = () => exportPersonsExcel();
   $('#pImport').onclick = () => importPersonsExcel();
+}
+function setPersonStatus(p, st) {
+  if (!st) delete p.statusOverride; else p.statusOverride = { status: st, from: todayISO() };
+  save(); toast(p.name + ': ' + (st ? t(STATUS_LBL[st]) : t('Otomatik')));
 }
 function editPerson(id, preset) {
   const p = id ? S.persons.find(x => x.id === id) : Object.assign({ id: uid('u'), seq: (Math.max(0, ...S.persons.map(x => Number(x.seq) || 0)) + 1), regNo: '', title: '', name: '', mother: '', nickname: '', group: '', homeId: '', workId: '', lineId: '', exempt: null, active: true, notes: '' }, preset || {});
@@ -375,6 +405,7 @@ function editPerson(id, preset) {
     <label class="f">${t('Ev (oturduğu yer / durak)')}<select id="f_home">${opt(homePlaces().slice().sort((a, b) => sortTR(a.name, b.name)), p.homeId, x => x.name + (placeExempt(x) ? '  (' + t('muaf yer') + ')' : ''), x => x.id, t('— seçiniz —'))}</select></label>
     <label class="f">${t('Muafiyet')}<select id="f_ex"><option value="" ${p.exempt == null ? 'selected' : ''}>${t('Yere göre (otomatik)')}</option><option value="1" ${p.exempt === true ? 'selected' : ''}>${t('Muaf (servis dışı)')}</option><option value="0" ${p.exempt === false ? 'selected' : ''}>${t('Muaf değil (servise dahil)')}</option></select></label>
   </div>
+  <label class="f" style="margin-bottom:8px">${t('Bugünkü durum')}<select id="f_st"><option value="">${t('Otomatik (gruba göre)')}</option>${['work', 'home', 'transit'].map(k => `<option value="${k}" ${p.statusOverride && p.statusOverride.status === k && todayISO() >= p.statusOverride.from && personStatusAt(p, todayISO()) === k ? 'selected' : ''}>${t(STATUS_LBL[k])}</option>`).join('')}</select><span class="small muted">${t('Elle verilen durum bir sonraki değişim gününe kadar geçerlidir; "Serviste (yolda)" sadece bugün için.')}</span></label>
   <label class="f">${t('Not')}<textarea id="f_notes" rows="2" dir="auto">${h(p.notes)}</textarea></label>
   <label class="chk" style="margin-top:8px"><input type="checkbox" id="f_active" ${p.active !== false ? 'checked' : ''}> ${t('Sistemde aktif (işareti kaldırırsanız kişi sistemden çıkarılır, kaydı kalır)')}</label>
   <div class="actions">${id ? `<button class="btn danger" id="f_del">${t('Kaydı sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="f_save">${t('Kaydet')}</button></div>`,
@@ -383,6 +414,8 @@ function editPerson(id, preset) {
         const name = $('#f_name', r).value.trim(); if (!name) return toast(t('Ad gerekli'), true);
         Object.assign(p, { seq: $('#f_seq', r).value.trim(), regNo: $('#f_reg', r).value.trim(), group: $('#f_grp', r).value, name, nickname: $('#f_nick', r).value.trim(), title: $('#f_title', r).value.trim(), mother: $('#f_mother', r).value.trim(), workId: $('#f_work', r).value, lineId: $('#f_line', r).value, homeId: $('#f_home', r).value, notes: $('#f_notes', r).value.trim(), active: $('#f_active', r).checked });
         const ex = $('#f_ex', r).value; p.exempt = ex === '' ? null : ex === '1';
+        const stv = $('#f_st', r).value; const curOv = p.statusOverride && personStatusAt(p, todayISO()) === p.statusOverride.status ? p.statusOverride.status : '';
+        if (stv !== curOv) { if (stv) p.statusOverride = { status: stv, from: todayISO() }; else delete p.statusOverride; }
         if (!id) S.persons.push(p);
         const L = lineById(p.lineId); if (L && p.homeId && !L.stops.includes(p.homeId)) L.stops.push(p.homeId);
         save(); close(); render(); toast(t('Kaydedildi'));
@@ -460,7 +493,7 @@ function lineDetail(L) {
   const d0 = todayISO();
   const persons = S.persons.filter(p => p.lineId === L.id);
   const unplaced = persons.filter(p => !L.stops.includes(p.homeId));
-  const row = (p) => { const ex = personExempt(p) || p.active === false; const g = groupById(p.group); const st = g ? groupStatusAt(g, d0) : ''; return `<span class="pill" style="${ex ? 'opacity:.55' : ''}" title="${h(p.title)}"><span dir="auto">${h(p.name)}</span> <span class="muted">${h(p.group)}${st ? ' · ' + (st === 'work' ? t('işte') : t('evde')) : ''}${ex ? ' · ' + t('muaf/pasif') : ''}</span><button data-rmp="${p.id}" title="${t('Hattan çıkar')}">✕</button></span>`; };
+  const row = (p) => { const ex = personExempt(p) || p.active === false; const st = personStatusAt(p, d0); return `<span class="pill" style="${ex ? 'opacity:.55' : ''}" title="${h(p.title)}"><span dir="auto">${h(p.name)}</span> <span class="muted">${h(p.group)}${st ? ' · ' + t(STATUS_LBL[st]).toLocaleLowerCase(LANG) : ''}${ex ? ' · ' + t('muaf/pasif') : ''}</span><button data-rmp="${p.id}" title="${t('Hattan çıkar')}">✕</button></span>`; };
   return `<div class="grid c2">
   <div>
     <div class="card"><div class="row between"><h2><i class="dot" style="background:${lineColor(L)}"></i> ${h(lname(L))}</h2><span class="muted small">${persons.filter(personInService).length} ${t('kişi serviste')} / ${persons.length} ${t('kayıtlı')}</span></div>
@@ -473,8 +506,8 @@ function lineDetail(L) {
     ${unplaced.length ? `<div class="card"><h3>${t('Durağı hatta tanımlı olmayan kişiler')}</h3><div class="pill-list">${unplaced.map(row).join('')}</div><p class="small muted">${t('Bu kişilerin ev yerini hattın duraklarına ekleyin (yukarıdan "Durak ekle").')}</p></div>` : ''}
     <div class="card"><h3>${t('Hat özeti')}</h3><div class="kv">
       <b>${t('Durak')}</b><span>${L.stops.length}</span>
-      <b>${t('İşte olanlar')}</b><span>${persons.filter(p => personInService(p) && stWork(groupById(p.group), d0)).length}</span>
-      <b>${t('Evde olanlar')}</b><span>${persons.filter(p => personInService(p) && groupById(p.group) && !stWork(groupById(p.group), d0)).length}</span>
+      <b>${t('İşte olanlar')}</b><span>${persons.filter(p => personInService(p) && personStatusAt(p, d0) === 'work').length}</span>
+      <b>${t('Evde olanlar')}</b><span>${persons.filter(p => personInService(p) && personStatusAt(p, d0) === 'home').length}</span>
       <b>${t('Muaf / pasif')}</b><span>${persons.filter(p => !personInService(p)).length}</span></div></div>
   </div></div>`;
 }
@@ -635,7 +668,7 @@ function letterheadHtml(lhId) {
   return `${lh.watermark ? '<div class="wm"></div>' : ''}<div class="lh"><div class="l">${h(lh.left)}</div><img src="${h(lh.logo || 'assets/logo.png')}"><div class="r">${h(lh.right)}</div></div>`;
 }
 const dirLabel = r => r.dir === 'toHome' ? t('Eve dönüş') : t('İşe gidiş');
-const personStatusLabel = p => p.active === false ? t('Çıkarıldı') : personExempt(p) ? t('Muaf') : t('Serviste');
+const personStatusLabel = p => p.active === false ? t('Çıkarıldı') : personExempt(p) ? t('Muaf') : t('Dahil');
 function reportHtml(type, o) {
   const d0 = todayISO(); const date = o.date || d0;
   const head = (title, sub) => `<h1>${h(o.title || title)}</h1><div class="sub">${h(sub || '')}</div>`;

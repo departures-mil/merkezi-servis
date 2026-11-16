@@ -220,3 +220,9 @@ th,td{text-align:start}
 .topbar .dd.upd{min-width:280px;max-width:340px}
 .topbar .dd .pad{padding:10px 12px;font-size:13px;color:var(--ink)}
 .topbar .dd .pad.err{color:var(--bad)}
+
+select.pst{padding:3px 6px;font-size:12px;border-radius:999px;font-weight:600}
+select.pst.st-work{background:#dcfce7;color:#15803d;border-color:#86efac}
+select.pst.st-home{background:#e5e7eb;color:#374151}
+select.pst.st-transit{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}
+select.pst.man{outline:2px dashed #b45309;outline-offset:1px}
