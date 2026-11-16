@@ -2,6 +2,7 @@
 'use strict';
 window.I18N = {
 en: {
+"Sefer türü":"Trip type","Normal (1 otobüs)":"Normal (1 bus)","Özel durum: 2 otobüs":"Special case: 2 buses","Atamaları sıfırla":"Reset assignments","Durak bazlı atamaları temizle":"Clear per-stop assignments","İstersen her durağın otobüsünü aşağıdan tek tek değiştirebilirsin.":"You can also change each stop's bus individually below.",
 '1 otobüs':'1 bus','2 otobüs':'2 buses','2 otobüs (ekspres + toplayıcı)':'2 buses (express + collector)',
 '2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.':'2 drivers on duty, 2 resting (Team 1 / Team 2). Driver changeover happens in the middle of the passenger rotation (day 5).',
 'Ad Soyad':'Full name','Ad gerekli':'Name is required','Ad, lakap, sicil, yer ara…':'Search name, nickname, ID, place…','Aktif':'Active','Aktif (nöbette)':'Active (on duty)','Alt bilgi':'Footer','Anne adı':"Mother's name",'Antet':'Letterhead','Antet adı':'Letterhead name','Antet düzenle':'Edit letterhead','Antet eklendi':'Letterhead added','Antet silinsin mi?':'Delete this letterhead?','Antetler':'Letterheads','Arka plan filigranı (desen)':'Background watermark (pattern)','Ayarlar':'Settings',
@@ -28,6 +29,7 @@ en: {
 'Şimdi güncelle':'Update now','Şoför':'Driver','Şoför Nöbet Çizelgesi':'Driver Duty Roster','Şoför döngüsü (gün)':'Driver cycle (days)','Şoför ekibi':'Driver team','Şoför ekle':'Add driver','Şoför listesi':'Driver list','Şoför nöbet çizelgesi':'Driver duty roster','Şoför silinsin mi?':'Delete this driver?','Şoförler':'Drivers','Şoförler – bugün':'Drivers – today','Şoförü düzenle':'Edit driver','Şu an':'Now','Şu an görevde olan ekip':'Team currently on duty','şablon':'template','— mevcut yerden durak ekle —':'— add stop from existing place —','— seçiniz —':'— select —'
 },
 ar: {
+"Sefer türü":"نوع الرحلة","Normal (1 otobüs)":"عادي (حافلة واحدة)","Özel durum: 2 otobüs":"حالة خاصة: حافلتان","Atamaları sıfırla":"إعادة ضبط التوزيع","Durak bazlı atamaları temizle":"مسح توزيع المحطات","İstersen her durağın otobüsünü aşağıdan tek tek değiştirebilirsin.":"يمكنك أيضاً تغيير حافلة كل محطة على حدة أدناه.",
 '1 otobüs':'حافلة واحدة','2 otobüs':'حافلتان','2 otobüs (ekspres + toplayıcı)':'حافلتان (سريعة + تجميع)',
 '2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.':'سائقان في الخدمة وسائقان في الراحة (الفريق 1 / الفريق 2). يتم تبديل السائقين في منتصف دورة الركاب (اليوم الخامس).',
 'Ad Soyad':'الاسم الكامل','Ad gerekli':'الاسم مطلوب','Ad, lakap, sicil, yer ara…':'بحث بالاسم، اللقب، الرقم، المكان…','Aktif':'نشط','Aktif (nöbette)':'نشط (في المناوبة)','Alt bilgi':'التذييل','Anne adı':'اسم الأم','Antet':'الترويسة','Antet adı':'اسم الترويسة','Antet düzenle':'تعديل الترويسة','Antet eklendi':'تمت إضافة الترويسة','Antet silinsin mi?':'حذف هذه الترويسة؟','Antetler':'الترويسات','Arka plan filigranı (desen)':'علامة مائية في الخلفية (نقش)','Ayarlar':'الإعدادات',
