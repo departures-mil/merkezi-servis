@@ -1,6 +1,6 @@
 {
-  "version": "1.3.0",
-  "notes": "Ana Hatlar sayfası (Sermede–Dera, Sermede–Cisr, Hama–Cisr, Hama–Şam), çevrimiçi harita altlığı ve gerçek yol rotası (yoksa çevrimdışı), Kadısiye Sermede'de, güncelleme sağ üstte yerinde, 'İşte' etiketi.",
+  "version": "1.3.1",
+  "notes": "Tam otomatik güncelleme: açılışta ve 20 dakikada bir kontrol, sessiz indirme, boştayken kendini yenileme.",
   "files": [
     "www/index.html",
     "www/app.js",
