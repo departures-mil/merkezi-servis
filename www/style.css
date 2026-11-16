@@ -17,7 +17,8 @@ nav a{padding:10px 12px;border-radius:8px;cursor:pointer;color:var(--side-ink);t
 nav a:hover{background:#2b3140;color:#fff}
 nav a.active{background:var(--accent);color:#fff}
 .side-foot{margin-top:auto;padding:12px 14px;font-size:12px;color:#9aa3b2;border-top:1px solid #2f3542}
-.main{flex:1;overflow:auto;padding:22px 26px}
+.mainwrap{flex:1;display:flex;flex-direction:column;min-width:0}
+.main{flex:1;overflow:auto;padding:14px 26px 22px}
 h1{font-size:22px;margin:0 0 14px}
 h2{font-size:17px;margin:0 0 10px}
 h3{font-size:15px;margin:0 0 8px}
@@ -151,11 +152,11 @@ th,td{text-align:start}
 #mapHost{height:520px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#dbeafe}
 #mapSvg{width:100%;height:100%;display:block;cursor:grab;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
 #mapSvg:active{cursor:grabbing}
-.mlbl-country{font-size:11px;fill:#64748b;font-style:italic;letter-spacing:.5px;pointer-events:none}
-.mlbl-city{font-size:7px;fill:#94a3b8;pointer-events:none}
-.mline-halo{fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
-.mline{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;cursor:pointer;stroke-dasharray:10 5;animation:mdash 14s linear infinite}
-.mline:hover{stroke-width:5}
+.mlbl-country{fill:#64748b;font-style:italic;letter-spacing:.5px;pointer-events:none}
+.mlbl-city{fill:#94a3b8;pointer-events:none}
+.mline-halo{fill:none;stroke:#fff;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.mline{fill:none;stroke-linecap:round;stroke-linejoin:round;cursor:pointer;animation:mdash 14s linear infinite}
+.mline:hover{opacity:.75}
 @keyframes mdash{to{stroke-dashoffset:-300}}
 .mline-tag{cursor:pointer}
 .mline-tag text{font-size:9px;fill:#fff;font-weight:600}
@@ -168,3 +169,22 @@ th,td{text-align:start}
 .mstop.work .mname{font-size:9px;fill:#5b4f2b}
 .map-pop{position:absolute;width:330px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.22);padding:12px;z-index:5}
 .map-pop .pill{cursor:pointer}
+
+/* sade görünüm */
+#mapSvg.simple .mline{animation:none}
+#mapSvg.simple .mline-tag rect{opacity:.85}
+#mapSvg.nolabels .mstop:not(.work) .mname{display:none}
+#mapSvg.nolabels .mstop:hover .mname{display:block}
+#mapSvg.simple .mstop:not(.work) .mname{font-size:7px;fill:#334155}
+
+/* üst çubuk */
+.topbar{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:6px 14px 0;font-size:12px;color:var(--muted)}
+.topbar .btn.sm{padding:2px 8px;font-size:12px;position:relative}
+.topbar .dot-new{position:absolute;top:-3px;inset-inline-end:-3px;width:9px;height:9px;border-radius:50%;background:#dc2626;border:2px solid #fff}
+.topbar .menu{position:relative}
+.topbar .dd{position:absolute;inset-inline-end:0;top:28px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:200px;z-index:20;display:none}
+.topbar .menu.open .dd{display:block}
+.topbar .dd a{display:block;padding:8px 12px;color:var(--ink);cursor:pointer;font-size:13px}
+.topbar .dd a:hover{background:#f3f4f6}
+.map-tools .lg.off{opacity:.35;text-decoration:line-through}
+.map-tools select.sm{padding:3px 6px;font-size:12px}

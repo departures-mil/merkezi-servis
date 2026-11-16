@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'B'];
@@ -70,9 +70,9 @@ function save(immediate) {
   S.savedAt = Date.now();
   const json = JSON.stringify(S);
   try { localStorage.setItem(LS_KEY, json); } catch (e) { }
-  $('#saveInfo').textContent = t('Kaydediliyor…');
+  $('#saveInfo').textContent = t('Kaydediliyor…'); const si = $('#saveInfoTop'); if (si) si.textContent = '⏳ ' + t('Kaydediliyor…');
   clearTimeout(saveT);
-  const doDisk = async () => { if (isElectron) await window.electronAPI.saveData(json); $('#saveInfo').textContent = t('Kaydedildi') + ' ' + new Date().toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG); };
+  const doDisk = async () => { if (isElectron) await window.electronAPI.saveData(json); $('#saveInfo').textContent = t('Kaydedildi') + ' ' + new Date().toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG); const si2 = $('#saveInfoTop'); if (si2) si2.textContent = '✓ ' + $('#saveInfo').textContent; };
   if (immediate) doDisk(); else saveT = setTimeout(doDisk, 400);
 }
 
@@ -82,6 +82,12 @@ const placeName = id => (placeById(id) || {}).name || '—';
 const lineById = id => S.lines.find(l => l.id === id);
 const lname = L => L ? ((LANG === 'ar' && L.nameAr) || (LANG === 'en' && L.nameEn) || L.name) : '—';
 const lineName = id => lname(lineById(id));
+function lineEndB(L) {
+  if (L.endB && placeById(L.endB)) return L.endB;
+  const keys = ['درعا', 'جسر الشغور', 'دمشق', 'الشام', 'حلب', 'Dera', 'Cisr', 'Şam', 'Halep'];
+  for (const kw of keys) { if (lname(L).includes(kw) || L.name.includes(kw)) { const hit = L.stops.map(placeById).find(p => p && p.name.includes(kw)); if (hit) return hit.id; } }
+  return L.stops[L.stops.length - 1] || '';
+}
 const groupById = id => S.groups.find(g => g.id === id);
 const workPlaces = () => S.places.filter(p => p.type === 'work');
 const homePlaces = () => S.places.filter(p => p.type !== 'work');
@@ -150,6 +156,29 @@ function renderNav() {
   $$('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
   $('#langSel').innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === LANG ? 'selected' : ''}>${v}</option>`).join('');
   $('#brandSub').textContent = S.settings.orgName;
+  renderTopbar();
+}
+let updateAvail = null;
+function renderTopbar() {
+  const tb = $('#topbar'); if (!tb) return;
+  tb.innerHTML = `<span id="saveInfoTop" class="muted">${$('#saveInfo') ? $('#saveInfo').textContent : ''}</span>
+    <span class="menu" id="syncMenu"><button class="btn sm" id="syncBtn">⇄ ${t('Eşitle')}</button><div class="dd"><a id="tbExp">⬇ ${t('Yedek al (JSON)')}</a><a id="tbImp">⬆ ${t('Yedekten geri yükle')}</a><a id="tbXls">📗 ${t("Excel'e ver")}</a></div></span>
+    <button class="btn sm" id="updBtn">⟳ ${t('Güncelle')}${updateAvail ? '<span class="dot-new"></span>' : ''}</button>`;
+  const mn = $('#syncMenu', tb);
+  $('#syncBtn', tb).onclick = e => { e.stopPropagation(); mn.classList.toggle('open'); };
+  document.addEventListener('click', () => mn.classList.remove('open'), { once: true });
+  $('#tbExp', tb).onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
+  $('#tbImp', tb).onclick = () => importBackup();
+  $('#tbXls', tb).onclick = () => exportPersonsExcel();
+  $('#updBtn', tb).onclick = () => { go('settings'); setTimeout(() => { const b = $('#updCheck'); if (b) b.click(); }, 50); };
+}
+async function silentUpdateCheck() {
+  if (!isElectron) return;
+  try { const r = await window.electronAPI.checkUpdate(S.settings.updateUrl || DEFAULT_UPDATE_URL); updateAvail = r.available ? r.remote : null; renderTopbar(); if (r.available) toast(t('Yeni sürüm bulundu') + ': ' + r.remote); } catch (e) { }
+}
+async function importBackup() {
+  const f = await pickFile('.json'); if (!f) return;
+  try { const st = JSON.parse(new TextDecoder().decode(f.data)); if (!st.persons) throw 0; confirmDlg(t('Mevcut veriler yedekteki verilerle değiştirilecek. Devam?'), () => { S = st; save(true); applyLang(S.settings.lang); renderNav(); render(); toast(t('Geri yüklendi')); }); } catch (e) { toast(t('Geçersiz yedek dosyası'), true); }
 }
 function applyLang(l) {
   LANG = LANGS[l] ? l : 'tr'; document.documentElement.lang = LANG; document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
@@ -190,39 +219,66 @@ function unproj(x, y) { const kx = MAP.W / (MAP.lon1 - MAP.lon0); const ky = MAP
 function smoothPath(pts) { if (pts.length < 2) return ''; let d = `M${pts[0][0]},${pts[0][1]}`; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2; const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]; d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`; } return d; }
 function mapHtml() {
   const d0 = todayISO();
+  const mode = S.settings.mapMode || (S.settings.mapSimple ? 'simple' : 'full'); const simple = mode !== 'full', linesOnly = mode === 'lines', labels = S.settings.mapLabels !== false;
+  const hostEl = document.getElementById('mapHost'); const k = mapView.w / ((hostEl && hostEl.clientWidth) || 1000) * 1.25; // 1 birim ≈ 1.25 px: ekranda sabit boyut
   const inService = S.persons.filter(personInService);
   const used = new Set(); S.lines.forEach(L => { used.add(L.endA); L.stops.forEach(s => used.add(s)); }); S.persons.forEach(p => { if (p.homeId) used.add(p.homeId); if (p.workId) used.add(p.workId); });
   const pts = {}; S.places.forEach(p => { if (used.has(p.id)) { const c = placeCoord(p); pts[p.id] = { ...c, xy: proj(c.lon, c.lat), p }; } });
   const syria = GEO.syria.map(([lo, la]) => proj(lo, la).join(',')).join(' ');
-  let svg = `<svg id="mapSvg" viewBox="${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}" xmlns="http://www.w3.org/2000/svg">
+  let svg = `<svg id="mapSvg" viewBox="${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}" xmlns="http://www.w3.org/2000/svg" class="${simple ? 'simple' : ''} ${labels ? '' : 'nolabels'}">
   <defs><linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#bfdbfe"/></linearGradient>
-  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".25"/></filter>
+  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${1.5 * k}" stdDeviation="${1.5 * k}" flood-color="#000" flood-opacity=".25"/></filter>
   <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#0f172a" stroke-opacity=".04"/></pattern></defs>
   <rect x="-2000" y="-2000" width="5000" height="5000" fill="url(#sea)"/>
-  <polygon points="${syria}" fill="#f5f0e1" stroke="#a89b6b" stroke-width="1.2" filter="url(#sh)"/>
-  <polygon points="${syria}" fill="url(#grid)"/>`;
-  GEO.neighbors.forEach(([tr, ar, en, lo, la]) => { const [x, y] = proj(lo, la); svg += `<text x="${x}" y="${y}" class="mlbl-country">${h(LANG === 'ar' ? ar : LANG === 'en' ? en : tr)}</text>`; });
-  GEO.cities.forEach(([n, lo, la]) => { const [x, y] = proj(lo, la); svg += `<circle cx="${x}" cy="${y}" r="1.6" fill="#94a3b8"/><text x="${x + 3}" y="${y - 3}" class="mlbl-city">${h(n)}</text>`; });
+  <polygon points="${syria}" fill="${simple ? '#f8f6ee' : '#f5f0e1'}" stroke="#a89b6b" stroke-width="${1.2 * k}"/>
+  ${simple ? '' : `<polygon points="${syria}" fill="url(#grid)"/>`}`;
+  GEO.neighbors.forEach(([tr, ar, en, lo, la]) => { const [x, y] = proj(lo, la); svg += `<text x="${x}" y="${y}" class="mlbl-country" font-size="${11 * k}">${h(LANG === 'ar' ? ar : LANG === 'en' ? en : tr)}</text>`; });
+  if (!simple) GEO.cities.forEach(([n, lo, la]) => { const [x, y] = proj(lo, la); svg += `<circle cx="${x}" cy="${y}" r="${1.6 * k}" fill="#94a3b8"/><text x="${x + 3 * k}" y="${y - 3 * k}" class="mlbl-city" font-size="${7 * k}">${h(n)}</text>`; });
+  const hidden = new Set(S.settings.mapHiddenLines || []);
+  const visible = ({ p }) => { if (hidden.size && S.lines.some(L => hidden.has(L.id) && L.stops.includes(p.id)) && !S.lines.some(L => !hidden.has(L.id) && (L.stops.includes(p.id) || L.endA === p.id))) return false; if (!simple) return true; if (p.type === 'work') return true; return inService.some(q => q.homeId === p.id); };
+  if (linesOnly) {
+    const ends = {};
+    S.lines.forEach((L, li) => {
+      if (hidden.has(L.id)) return; const cnt = inService.filter(q => q.lineId === L.id).length; if (!cnt) return;
+      const a = pts[L.endA], bId = lineEndB(L), b = pts[bId]; if (!a || !b) return;
+      const col = lineColor(L);
+      const [x1, y1] = a.xy, [x2, y2] = b.xy; const dx = x2 - x1, dy = y2 - y1; const len = Math.hypot(dx, dy) || 1;
+      const bend = ((li % 2) ? -1 : 1) * Math.min(40, len * 0.18); const cx = (x1 + x2) / 2 - dy / len * bend, cy = (y1 + y2) / 2 + dx / len * bend;
+      svg += `<path d="M${x1},${y1} Q${cx},${cy} ${x2},${y2}" class="mline-halo" stroke-width="${9 * k}"/><path d="M${x1},${y1} Q${cx},${cy} ${x2},${y2}" class="mline" stroke="${col}" stroke-width="${4 * k}" stroke-dasharray="${14 * k} ${7 * k}" data-line="${L.id}"><title>${h(lname(L))}</title></path>`;
+      const tt = (li % 2) ? 0.3 : 0.65; const mx = (1 - tt) * (1 - tt) * x1 + 2 * (1 - tt) * tt * cx + tt * tt * x2, my = (1 - tt) * (1 - tt) * y1 + 2 * (1 - tt) * tt * cy + tt * tt * y2; const nm = lname(L) + ' · ' + cnt;
+      svg += `<g class="mline-tag" data-line="${L.id}" transform="translate(${mx},${my}) scale(${k})"><rect x="${-(nm.length * 3.2 + 8)}" y="-9" rx="5" ry="5" width="${nm.length * 6.4 + 16}" height="18" fill="${col}"/><text x="0" y="4" text-anchor="middle" font-size="11">${h(nm)}</text></g>`;
+      ends[L.endA] = a; ends[bId] = b;
+    });
+    Object.values(ends).forEach(({ p, xy }) => {
+      const [x, y] = xy; const isWork = p.type === 'work';
+      const cnt = inService.filter(q => q.homeId === p.id || (isWork && q.workId === p.id)).length;
+      svg += `<g class="mstop ${isWork ? 'work' : ''}" data-place="${p.id}" transform="translate(${x},${y}) scale(${k})">${isWork ? '<rect x="-12" y="-12" width="24" height="24" rx="6" fill="#8a7a4e" stroke="#fff" stroke-width="2.5"/><text y="5" class="mico" font-size="14">🏭</text>' : '<circle r="10" fill="#1f2937" stroke="#fff" stroke-width="2.5"/>'}<text y="${isWork ? -17 : -15}" class="mname" font-size="11">${h(p.name)}</text><title>${h(p.name)} — ${cnt} ${t('kişi')}</title></g>`;
+    });
+    svg += '</svg>'; return svg;
+  }
   // hatlar
   S.lines.forEach(L => {
-    const seq = [L.endA, ...L.stops].filter(id => pts[id]).map(id => pts[id].xy);
+    if (hidden.has(L.id)) return;
+    const seq = [L.endA, ...L.stops].filter(id => pts[id] && visible(pts[id])).map(id => pts[id].xy);
     if (seq.length < 2) return;
-    const col = lineColor(L);
-    svg += `<path d="${smoothPath(seq)}" class="mline-halo"/><path d="${smoothPath(seq)}" class="mline" stroke="${col}" data-line="${L.id}"><title>${h(lname(L))}</title></path>`;
-    const mid = seq[Math.floor(seq.length / 2)];
-    svg += `<g class="mline-tag" data-line="${L.id}"><rect x="${mid[0] + 4}" y="${mid[1] - 16}" rx="4" ry="4" width="${lname(L).length * 5.6 + 10}" height="14" fill="${col}"/><text x="${mid[0] + 9}" y="${mid[1] - 6}">${h(lname(L))}</text></g>`;
+    const col = lineColor(L); const d = smoothPath(seq);
+    svg += `<path d="${d}" class="mline-halo" stroke-width="${(simple ? 5 : 7) * k}"/><path d="${d}" class="mline" stroke="${col}" stroke-width="${(simple ? 2.5 : 3.5) * k}" stroke-dasharray="${10 * k} ${5 * k}" data-line="${L.id}"><title>${h(lname(L))}</title></path>`;
+    const mid = seq[Math.floor(seq.length / 2)]; const nm = lname(L);
+    svg += `<g class="mline-tag" data-line="${L.id}" transform="translate(${mid[0]},${mid[1]}) scale(${k})"><rect x="4" y="-16" rx="4" ry="4" width="${nm.length * 5.6 + 10}" height="14" fill="${col}"/><text x="9" y="-6">${h(nm)}</text></g>`;
   });
   // duraklar
-  Object.values(pts).forEach(({ p, xy, auto, unknown }) => {
+  Object.values(pts).filter(visible).forEach(({ p, xy, unknown }) => {
     const [x, y] = xy; const isWork = p.type === 'work';
     const ps = inService.filter(q => q.homeId === p.id || (isWork && q.workId === p.id));
     const atWork = ps.filter(q => stWork(groupById(q.group), d0)).length;
     const ex = !isWork && placeExempt(p);
-    const col = isWork ? '#8a7a4e' : ex ? '#9ca3af' : (S.lines.find(L => L.stops.includes(p.id)) ? lineColor(S.lines.find(L => L.stops.includes(p.id))) : '#64748b');
-    svg += `<g class="mstop ${isWork ? 'work' : ''} ${mapView.editing ? 'drag' : ''}" data-place="${p.id}" transform="translate(${x},${y})">`;
-    if (isWork) svg += `<rect x="-9" y="-9" width="18" height="18" rx="4" fill="${col}" stroke="#fff" stroke-width="2" filter="url(#sh)"/><text y="4" class="mico">🏭</text>`;
-    else svg += `<circle r="${Math.min(11, 5 + ps.length * 0.6)}" fill="${col}" stroke="#fff" stroke-width="1.8" filter="url(#sh)" ${unknown ? 'stroke-dasharray="2 1.5"' : ''}/>${ps.length ? `<text y="3" class="mcnt">${ps.length}</text>` : ''}`;
-    svg += `<text y="${isWork ? -13 : -(Math.min(11, 5 + ps.length * 0.6) + 3)}" class="mname">${h(p.name)}</text><title>${h(p.name)} — ${ps.length} ${t('kişi')}${isWork ? '' : ' · ' + t('işte') + ' ' + atWork + ' · ' + t('evde') + ' ' + (ps.length - atWork)}</title></g>`;
+    const onLine = S.lines.find(L => L.stops.includes(p.id));
+    const col = isWork ? '#8a7a4e' : ex ? '#9ca3af' : onLine ? lineColor(onLine) : '#64748b';
+    const r = Math.min(11, 5 + ps.length * 0.6);
+    svg += `<g class="mstop ${isWork ? 'work' : ''} ${mapView.editing ? 'drag' : ''}" data-place="${p.id}" transform="translate(${x},${y}) scale(${k})">`;
+    if (isWork) svg += `<rect x="-9" y="-9" width="18" height="18" rx="4" fill="${col}" stroke="#fff" stroke-width="2"/><text y="4" class="mico">🏭</text>`;
+    else svg += `<circle r="${r}" fill="${col}" stroke="#fff" stroke-width="1.8" ${unknown ? 'stroke-dasharray="2 1.5"' : ''}/>${ps.length ? `<text y="3" class="mcnt">${ps.length}</text>` : ''}`;
+    svg += `<text y="${isWork ? -13 : -(r + 3)}" class="mname">${h(p.name)}</text><title>${h(p.name)} — ${ps.length} ${t('kişi')}${isWork ? '' : ' · ' + t('işte') + ' ' + atWork + ' · ' + t('evde') + ' ' + (ps.length - atWork)}</title></g>`;
   });
   svg += '</svg>';
   return svg;
@@ -230,8 +286,11 @@ function mapHtml() {
 function mountMap(container) {
   container.innerHTML = `<div class="map-wrap"><div class="map-tools">
     <button class="btn sm" id="mzi">＋</button><button class="btn sm" id="mzo">－</button><button class="btn sm" id="mzr">${t('Sıfırla')}</button>
+    <select id="mmode" class="sm">${[['full', 'Ayrıntılı görünüm'], ['simple', 'Sade görünüm'], ['lines', 'Sadece hatlar']].map(([v, l]) => `<option value="${v}" ${(S.settings.mapMode || 'full') === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select>
+    <button class="btn sm ${S.settings.mapLabels !== false ? 'primary' : ''}" id="mlabels">${t('Adlar')}</button>
     <button class="btn sm ${mapView.editing ? 'primary' : ''}" id="medit">${mapView.editing ? t('Konum düzenleme açık') : t('Konumları düzenle')}</button>
-    <span class="legend">${S.lines.map(L => `<span class="lg" data-line="${L.id}"><i style="background:${lineColor(L)}"></i>${h(lname(L))}</span>`).join('')}</span></div>
+    <span class="legend">${S.lines.map(L => { const off = (S.settings.mapHiddenLines || []).includes(L.id); return `<span class="lg ${off ? 'off' : ''}" data-tline="${L.id}" title="${t('Göster / gizle')}"><i style="background:${lineColor(L)}"></i>${h(lname(L))}</span>`; }).join('')}</span>
+    <span style="flex:1"></span><button class="btn sm" id="mhide">${t('Haritayı gizle')}</button></div>
     <div id="mapHost"></div><div id="mapPop" class="map-pop hidden"></div></div>`;
   const host = $('#mapHost', container);
   const draw = () => { host.innerHTML = mapHtml(); bind(); };
@@ -259,7 +318,7 @@ function mountMap(container) {
     $('#popPlace', pop).onclick = () => editPlace(pid);
     $$('[data-pp]', pop).forEach(el => el.onclick = () => editPerson(el.dataset.pp));
   };
-  let drag = null, panning = null;
+  let drag = null, panning = null, zoomT;
   const svgPt = (svg, ev) => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const m = svg.getScreenCTM().inverse(); const q = pt.matrixTransform(m); return [q.x, q.y]; };
   function bind() {
     const svg = $('#mapSvg', host);
@@ -270,23 +329,26 @@ function mountMap(container) {
     $$('[data-line]', svg).forEach(el => el.addEventListener('click', ev => { ev.stopPropagation(); selLine = el.dataset.line; go('lines'); }));
     svg.addEventListener('mousedown', ev => { panning = { x: ev.clientX, y: ev.clientY, vx: mapView.x, vy: mapView.y, scale: mapView.w / svg.getBoundingClientRect().width }; });
     svg.addEventListener('mousemove', ev => {
-      if (drag) { const [x, y] = svgPt(svg, ev); drag.g.setAttribute('transform', `translate(${x},${y})`); drag.xy = [x, y]; return; }
+      if (drag) { const [x, y] = svgPt(svg, ev); drag.g.setAttribute('transform', `translate(${x},${y}) scale(${mapView.w / (host.clientWidth || 1000) * 1.25})`); drag.xy = [x, y]; return; }
       if (panning) { mapView.x = panning.vx - (ev.clientX - panning.x) * panning.scale; mapView.y = panning.vy - (ev.clientY - panning.y) * panning.scale; svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }
     });
     const up = () => { if (drag && drag.xy) { const p = placeById(drag.id); const [lon, lat] = unproj(drag.xy[0], drag.xy[1]); p.lon = +lon.toFixed(4); p.lat = +lat.toFixed(4); save(); draw(); } drag = null; panning = null; };
     svg.addEventListener('mouseup', up); svg.addEventListener('mouseleave', up);
-    svg.addEventListener('wheel', ev => { ev.preventDefault(); const f = ev.deltaY > 0 ? 1.15 : 1 / 1.15; const [mx, my] = svgPt(svg, ev); mapView.x = mx - (mx - mapView.x) * f; mapView.y = my - (my - mapView.y) * f; mapView.w *= f; mapView.h *= f; svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }, { passive: false });
+    svg.addEventListener('wheel', ev => { ev.preventDefault(); const f = ev.deltaY > 0 ? 1.15 : 1 / 1.15; const [mx, my] = svgPt(svg, ev); mapView.x = mx - (mx - mapView.x) * f; mapView.y = my - (my - mapView.y) * f; mapView.w *= f; mapView.h *= f; clearTimeout(zoomT); zoomT = setTimeout(draw, 60); svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }, { passive: false });
     svg.addEventListener('click', () => pop.classList.add('hidden'));
   }
-  const zoom = f => { const cx = mapView.x + mapView.w / 2, cy = mapView.y + mapView.h / 2; mapView.w *= f; mapView.h *= f; mapView.x = cx - mapView.w / 2; mapView.y = cy - mapView.h / 2; $('#mapSvg', host).setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); };
+  const zoom = f => { const cx = mapView.x + mapView.w / 2, cy = mapView.y + mapView.h / 2; mapView.w *= f; mapView.h *= f; mapView.x = cx - mapView.w / 2; mapView.y = cy - mapView.h / 2; draw(); };
   $('#mzi', container).onclick = () => zoom(1 / 1.3); $('#mzo', container).onclick = () => zoom(1.3);
   $('#mzr', container).onclick = () => { fitMap(); draw(); };
   $('#medit', container).onclick = () => { mapView.editing = !mapView.editing; mountMap(container); if (mapView.editing) toast(t('Durakları sürükleyerek yerini değiştirebilirsiniz')); };
-  $$('.lg', container).forEach(el => el.onclick = () => { selLine = el.dataset.line; go('lines'); });
+  $('#mmode', container).onchange = e => { S.settings.mapMode = e.target.value; S.settings.mapSimple = e.target.value !== 'full'; save(); fitMap(); mountMap(container); };
+  $('#mlabels', container).onclick = () => { S.settings.mapLabels = S.settings.mapLabels === false ? true : false; save(); mountMap(container); };
+  $$('[data-tline]', container).forEach(el => el.onclick = () => { const id = el.dataset.tline; let hl = S.settings.mapHiddenLines || []; hl = hl.includes(id) ? hl.filter(x => x !== id) : hl.concat(id); S.settings.mapHiddenLines = hl; save(); mountMap(container); });
+  $('#mhide', container).onclick = () => { S.settings.mapHidden = true; save(); render(); };
   draw();
 }
 function fitMap() {
-  const ids = new Set(); S.lines.forEach(L => { ids.add(L.endA); L.stops.forEach(s => { const pl = placeById(s); if (pl && !placeExempt(pl)) ids.add(s); }); });
+  const ids = new Set(); const lo = (S.settings.mapMode === 'lines'); S.lines.forEach(L => { if (lo && !S.persons.some(q => q.lineId === L.id && personInService(q))) return; ids.add(L.endA); if (lo) { ids.add(lineEndB(L)); return; } L.stops.forEach(s => { const pl = placeById(s); if (pl && !placeExempt(pl)) ids.add(s); }); });
   const xs = [], ys = []; ids.forEach(id => { const p = placeById(id); if (!p) return; const c = placeCoord(p); const [x, y] = proj(c.lon, c.lat); xs.push(x); ys.push(y); });
   if (!xs.length) { mapView = { ...mapView, x: 0, y: 0, w: MAP.W, h: MAP.H }; return; }
   const pad = 40; const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
@@ -304,7 +366,7 @@ function renderDash(m) {
   const team = driverTeamAt(d0); const nextDates = upcomingChangeDates(6);
   m.innerHTML = `
   <h1>${t('Genel Durum')} <span class="muted small">— ${fmt(d0)} ${dayName(d0)}</span></h1>
-  <div class="card tight" id="mapCard"></div>
+  ${S.settings.mapHidden ? `<p><button class="btn sm" id="mshow">🗺️ ${t('Haritayı göster')}</button></p>` : '<div class="card tight" id="mapCard"></div>'}
   <div class="grid c4">
     <div class="card stat"><div class="v">${inService.length}</div><div class="l">${t('Serviste olan kişi')}</div></div>
     <div class="card stat"><div class="v">${exempt.length}</div><div class="l">${t('Muaf (servis dışı)')}</div></div>
@@ -334,8 +396,8 @@ function renderDash(m) {
       </table>
     </div>
   </div>`;
-  if (!mapFitted) { mountMap($('#mapCard', m)); fitMap(); mapFitted = true; }
-  mountMap($('#mapCard', m));
+  if (S.settings.mapHidden) { $('#mshow', m).onclick = () => { S.settings.mapHidden = false; save(); render(); }; }
+  else { if (!mapFitted) { mountMap($('#mapCard', m)); fitMap(); mapFitted = true; } mountMap($('#mapCard', m)); }
   $$('[data-go]', m).forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.go); });
 }
 
@@ -519,9 +581,10 @@ function editLine(id) {
   modal(`<h2>${id ? t('Hattı düzenle') : t('Yeni hat')}</h2>
   <div class="grid c3"><label class="f">${t('Hat adı')}<input id="l_name" dir="auto" value="${h(lname(L))}"></label>
   <label class="f">${t('Başlangıç işyeri')}<select id="l_endA">${opt(workPlaces(), L.endA)}</select></label>
-  <label class="f">${t('Harita rengi')}<input type="color" id="l_color" value="${lineColor(L)}" style="height:34px"></label></div>
+  <label class="f">${t('Harita rengi')}<input type="color" id="l_color" value="${lineColor(L)}" style="height:34px"></label>
+  <label class="f">${t('Hat sonu (haritada)')}<select id="l_endB">${opt(homePlaces().slice().sort((a, b) => sortTR(a.name, b.name)), lineEndB(L), x => x.name, x => x.id, t('— otomatik —'))}</select></label></div>
   <div class="actions">${id ? `<button class="btn danger" id="l_del">${t('Hattı sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="l_save">${t('Kaydet')}</button></div>`, (r, close) => {
-    $('#l_save', r).onclick = () => { const n = $('#l_name', r).value.trim(); if (!n) return toast(t('Ad gerekli'), true); L.name = n; L.nameAr = $('#l_nameAr', r).value.trim(); L.nameEn = $('#l_nameEn', r).value.trim(); L.endA = $('#l_endA', r).value; L.color = $('#l_color', r).value; if (!id) { S.lines.push(L); selLine = L.id; } save(); close(); render(); };
+    $('#l_save', r).onclick = () => { const n = $('#l_name', r).value.trim(); if (!n) return toast(t('Ad gerekli'), true); L.name = n; L.nameAr = $('#l_nameAr', r).value.trim(); L.nameEn = $('#l_nameEn', r).value.trim(); L.endA = $('#l_endA', r).value; L.endB = $('#l_endB', r).value; L.color = $('#l_color', r).value; if (!id) { S.lines.push(L); selLine = L.id; } save(); close(); render(); };
     if (id) $('#l_del', r).onclick = () => confirmDlg(t('Hat silinsin mi? Hattaki kişiler hatsız kalır.'), () => { S.persons.forEach(p => { if (p.lineId === id) p.lineId = ''; }); S.lines = S.lines.filter(x => x.id !== id); selLine = ''; save(); close(); render(); });
   });
 }
@@ -809,7 +872,7 @@ function renderSettings(m) {
   $('#lhAddTxt').onclick = () => { const l = { id: uid('lh'), name: t('Yeni antet'), kind: 'builtin', left: '', right: '', logo: 'assets/logo.png', watermark: true, footer: '' }; S.letterheads.push(l); save(); editLetterhead(l.id); };
   $('#lhAddImg').onclick = async () => { const f = await pickFile('.png,.jpg,.jpeg'); if (!f) return; const mime = f.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'; S.letterheads.push({ id: uid('lh'), name: f.name, kind: 'image', imageData: `data:${mime};base64,${b64(f.data)}`, watermark: false }); save(); render(); toast(t('Antet eklendi')); };
   $('#bkExp').onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
-  $('#bkImp').onclick = async () => { const f = await pickFile('.json'); if (!f) return; try { const st = JSON.parse(new TextDecoder().decode(f.data)); if (!st.persons) throw 0; confirmDlg(t('Mevcut veriler yedekteki verilerle değiştirilecek. Devam?'), () => { S = st; save(true); applyLang(S.settings.lang); renderNav(); render(); toast(t('Geri yüklendi')); }); } catch (e) { toast(t('Geçersiz yedek dosyası'), true); } };
+  $('#bkImp').onclick = importBackup;
   $('#bkReset').onclick = () => confirmDlg(t("Tüm veriler silinip Excel'den gelen başlangıç verisi yüklenecek. Devam?"), async () => { const lang = S.settings.lang; S = await loadSeed(emptyState()); S.settings.lang = lang; save(true); mapFitted = false; render(); });
   if (isElectron) { window.electronAPI.dataPath().then(p => { $('#dataPath').textContent = t('Veri dosyası') + ': ' + p; }); window.electronAPI.appInfo().then(i => { $('#curVer').textContent = i.activeVersion + (i.updatedCopy ? ' (' + t('güncellenmiş') + ')' : ''); }); }
   $('#updCheck').onclick = async () => {
@@ -817,7 +880,7 @@ function renderSettings(m) {
     msg.textContent = t('Kontrol ediliyor…');
     try {
       const r = await window.electronAPI.checkUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL);
-      if (!r.available) return msg.innerHTML = `${t('Güncel.')} (${r.current} / ${r.remote})`;
+      updateAvail = r.available ? r.remote : null; renderTopbar(); if (!r.available) return msg.innerHTML = `${t('Güncel.')} (${r.current} / ${r.remote})`;
       msg.innerHTML = `${t('Yeni sürüm bulundu')}: <b>${h(r.remote)}</b> (${t('mevcut')} ${h(r.current)})<br>${h(r.notes)}<br><button class="btn primary sm" id="updGo">${t('Şimdi güncelle')}</button>`;
       $('#updGo').onclick = async () => { msg.textContent = t('İndiriliyor…'); try { const a = await window.electronAPI.applyUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
     } catch (e) { msg.textContent = t('Kontrol edilemedi') + ': ' + (e.message || e); }
@@ -842,7 +905,7 @@ function editLetterhead(id) {
   applyLang(S.settings.lang || 'tr');
   renderNav();
   $('#langSel').onchange = e => { S.settings.lang = e.target.value; save(); applyLang(S.settings.lang); renderNav(); render(); };
-  const start = () => { $('#lock').classList.add('hidden'); render(); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
+  const start = () => { $('#lock').classList.add('hidden'); render(); silentUpdateCheck(); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
   if (S.settings.pin) {
     $('#lock').classList.remove('hidden'); $('#lockTitle').textContent = t('İdareci şifresi'); $('#lockBtn').textContent = t('Giriş');
     const tryPin = () => { if ($('#lockPin').value === S.settings.pin) start(); else $('#lockErr').textContent = t('Hatalı şifre'); };
