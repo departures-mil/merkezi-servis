@@ -1,6 +1,6 @@
 {
-  "version": "1.5.0",
-  "notes": "Kişi bazlı 'Bugün nerede': Ev / Kadısiye merkezi / Hama merkezi / Serviste; Genel Durum'da 'Şu an kim nerede' özeti.",
+  "version": "1.6.0",
+  "notes": "4 grup: A, A1, B, B2 (Excel B1→B2); grup ekle/sil, silerken kişileri başka gruba taşı.",
   "files": [
     "www/index.html",
     "www/app.js",
