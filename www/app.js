@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'B'];
@@ -183,13 +183,26 @@ function renderTopbar() {
 }
 const APP_START = Date.now(); let lastUserAct = Date.now(), updReady = null, lastUpdCheck = 0, lastUpdErr = '', currentVer = APP_VERSION, updBusy = false;
 ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastUserAct = Date.now(); }, { passive: true, capture: true }));
+// GitHub önbelleğini aşmak için dalı son commit'e sabitle (raw/<sha>/ değişmez ve anlık)
+async function resolveUpdateBase(url) {
+  const m = String(url).match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/?$/);
+  if (!m || /^[0-9a-f]{40}$/.test(m[3])) return url;
+  try {
+    const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/commits/${m[3]}`, { headers: { Accept: 'application/vnd.github.sha' }, cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(tm);
+    if (!r.ok) return url;
+    const sha = (await r.text()).trim();
+    return /^[0-9a-f]{40}$/.test(sha) ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${sha}/` : url;
+  } catch (e) { return url; }
+}
 // Otomatik güncelleme: kontrol et → indir → kullanıcı boştayken yeniden başlat
 async function autoUpdate(manual) {
   if (!isElectron || updBusy || updReady) return;
   if (!manual && S.settings.autoUpdate === false) return;
   updBusy = true;
-  const url = S.settings.updateUrl || DEFAULT_UPDATE_URL;
   try {
+    const url = await resolveUpdateBase(S.settings.updateUrl || DEFAULT_UPDATE_URL);
     const r = await window.electronAPI.checkUpdate(url); lastUpdCheck = Date.now(); lastUpdErr = ''; currentVer = r.current;
     updateAvail = r.available ? r.remote : null; renderTopbar();
     if (r.available) {
@@ -769,10 +782,10 @@ function renderSettings(m) {
     const msg = $('#updMsg'); if (!isElectron) return msg.textContent = t('Sadece masaüstü uygulamasında.');
     msg.textContent = t('Kontrol ediliyor…');
     try {
-      const r = await window.electronAPI.checkUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL);
+      const base = await resolveUpdateBase($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); const r = await window.electronAPI.checkUpdate(base);
       updateAvail = r.available ? r.remote : null; renderTopbar(); if (!r.available) return msg.innerHTML = `${t('Güncel.')} (${r.current} / ${r.remote})`;
       msg.innerHTML = `${t('Yeni sürüm bulundu')}: <b>${h(r.remote)}</b> (${t('mevcut')} ${h(r.current)})<br>${h(r.notes)}<br><button class="btn primary sm" id="updGo">${t('Şimdi güncelle')}</button>`;
-      $('#updGo').onclick = async () => { msg.textContent = t('İndiriliyor…'); try { const a = await window.electronAPI.applyUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
+      $('#updGo').onclick = async () => { msg.textContent = t('İndiriliyor…'); try { const a = await window.electronAPI.applyUpdate(base); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
     } catch (e) { msg.textContent = t('Kontrol edilemedi') + ': ' + (e.message || e); }
   };
   $('#s_auto').onchange = e => { s.autoUpdate = e.target.checked; save(); renderTopbar(); };
