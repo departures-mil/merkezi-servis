@@ -1,6 +1,6 @@
 {
-  "version": "1.6.0",
-  "notes": "4 grup: A, A1, B, B2 (Excel B1→B2); grup ekle/sil, silerken kişileri başka gruba taşı.",
+  "version": "1.7.0",
+  "notes": "Şoför bazlı Aktif / İstirahatte seçimi (bir sonraki şoför değişimine kadar geçerli).",
   "files": [
     "www/index.html",
     "www/app.js",

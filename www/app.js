@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
@@ -125,6 +125,23 @@ const groupStatusAt = (g, d) => statusAt(g, S.settings.cycleDays, d, g.status);
 function groupNextChange(g, from) { const l = changeDatesBetween(g, S.settings.cycleDays, from || todayISO(), addDays(from || todayISO(), 400)); return l[0] || ''; }
 const groupPrevStatus = (g, d) => groupStatusAt(g, addDays(d, -1));
 function driverTeamAt(d) { return statusAt(S.driver, S.driver.cycleDays, d, S.driver.activeTeam === 1 ? 'work' : 'home') === 'work' ? 1 : 2; }
+// Şoför bazlı aktif/istirahat: elle verilen durum bir sonraki şoför değişimine kadar geçerli
+function driverActiveAt(d, date) {
+  const o = d.statusOverride;
+  if (o && o.status && o.from && date >= o.from) { const until = changeDatesBetween(S.driver, S.driver.cycleDays, addDays(o.from, 1), addDays(o.from, 400))[0]; if (!until || date < until) return o.status === 'active'; }
+  return d.team === driverTeamAt(date);
+}
+const driverManual = (d, date) => { const o = d.statusOverride; if (!o || !o.status || date < o.from) return ''; const until = changeDatesBetween(S.driver, S.driver.cycleDays, addDays(o.from, 1), addDays(o.from, 400))[0]; return (!until || date < until) ? o.status : ''; };
+function driverStatusSel(d) {
+  const d0 = todayISO(); const man = driverManual(d, d0); const auto = d.team === driverTeamAt(d0);
+  return `<select class="pst ${driverActiveAt(d, d0) ? 'st-work' : 'st-home'} ${man ? 'man' : ''}" data-dst="${d.id}">
+    <option value="" ${man ? '' : 'selected'}>${t('Otomatik')} (${auto ? t('Aktif') : t('İstirahatte')})</option>
+    <option value="active" ${man === 'active' ? 'selected' : ''}>${t('Aktif')}</option>
+    <option value="rest" ${man === 'rest' ? 'selected' : ''}>${t('İstirahatte')}</option></select>`;
+}
+function bindDriverStatus(root) {
+  $$('[data-dst]', root).forEach(sel => sel.onchange = () => { const d = S.drivers.find(x => x.id === sel.dataset.dst); if (sel.value) d.statusOverride = { status: sel.value, from: todayISO() }; else delete d.statusOverride; save(); render(); toast(d.name + ': ' + (sel.value ? (sel.value === 'active' ? t('Aktif') : t('İstirahatte')) : t('Otomatik'))); });
+}
 function driverNextChange(from) { const l = changeDatesBetween(S.driver, S.driver.cycleDays, from || todayISO(), addDays(from || todayISO(), 400)); return l[0] || ''; }
 function changesOn(dateISO) { return S.groups.filter(g => changeDatesBetween(g, S.settings.cycleDays, dateISO, dateISO).length > 0); }
 function upcomingChangeDates(n) { const set = new Set(); const d0 = todayISO(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, d0, addDays(d0, 400)).forEach(d => set.add(d))); return Array.from(set).sort().slice(0, n || 12); }
@@ -318,7 +335,7 @@ function renderDash(m) {
       <p class="small muted">${t('Değişim tarihlerini')} <a href="#" data-go="shifts">${t('Vardiya & Değişim')}</a> ${t('sayfasından girin.')}</p>
     </div>
     <div class="card"><h2>${t('Şoförler – bugün')}</h2>
-      ${S.drivers.map(d => `<div class="drv ${d.team === team ? 'on' : 'off'}"><span class="nm" dir="auto">${h(d.name)}</span><span class="badge ${d.team === team ? 'ok' : 'gray'}">${d.team === team ? t('Aktif (nöbette)') : t('İstirahatte')}</span><span class="small muted">${t('Ekip')} ${d.team}</span></div>`).join('')}
+      ${S.drivers.map(d => `<div class="drv ${driverActiveAt(d, d0) ? 'on' : 'off'}"><span class="nm" dir="auto">${h(d.name)}</span>${driverStatusSel(d)}<span class="small muted">${t('Ekip')} ${d.team}</span></div>`).join('')}
       <div class="small muted">${t('Sonraki şoför değişimi')}: <b>${driverNextChange() ? fmt(driverNextChange()) : t('tarih girilmedi')}</b></div>
     </div>
   </div>
@@ -336,6 +353,7 @@ function renderDash(m) {
   if (S.settings.mapHidden) { $('#mshow', m).onclick = () => { S.settings.mapHidden = false; save(); render(); }; }
   else mountMap($('#mapCard', m));
   $$('[data-go]', m).forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.go); });
+  bindDriverStatus(m);
   $$('[data-loc]', m).forEach(a => a.onclick = () => { const k = a.dataset.loc; pf = { q: '', group: '', line: '', status: k === 'home' ? 'st-home' : k === 'transit' ? 'st-transit' : 'loc-' + k, work: '', place: '' }; go('persons'); });
 }
 
@@ -602,8 +620,8 @@ function renderDrivers(m) {
   const d0 = todayISO(); const team = driverTeamAt(d0);
   m.innerHTML = `<h1>${t('Şoförler')}</h1>
   <div class="grid c2">
-  <div class="card"><div class="row between"><h2>${t('Şoför listesi')}</h2><button class="btn primary" id="dAdd">+ ${t('Şoför ekle')}</button></div>
-    ${S.drivers.map(d => `<div class="drv ${d.team === team ? 'on' : 'off'}"><div style="flex:1"><div class="nm" dir="auto">${h(d.name)} <span class="small muted">${h(d.phone)}</span></div><div class="small muted">${t('Ekip')} ${d.team} · ${t('İşe başlama')}: ${fmt(d.startDate)} · ${t('Bitiş')}: ${d.endDate ? fmt(d.endDate) : '—'} ${d.notes ? '· ' + h(d.notes) : ''}</div></div><span class="badge ${d.team === team ? 'ok' : 'gray'}">${d.team === team ? t('Aktif') : t('İstirahatte')}</span><button class="btn sm" data-de="${d.id}">${t('Düzenle')}</button></div>`).join('')}
+  <div class="card"><div class="row between"><h2>${t('Şoför listesi')} <span class="small muted">· ${t('Aktif')} ${S.drivers.filter(x => driverActiveAt(x, d0)).length} / ${t('İstirahatte')} ${S.drivers.filter(x => !driverActiveAt(x, d0)).length}</span></h2><button class="btn primary" id="dAdd">+ ${t('Şoför ekle')}</button></div>
+    ${S.drivers.map(d => `<div class="drv ${driverActiveAt(d, d0) ? 'on' : 'off'}"><div style="flex:1"><div class="nm" dir="auto">${h(d.name)} <span class="small muted">${h(d.phone)}</span></div><div class="small muted">${t('Ekip')} ${d.team} · ${t('İşe başlama')}: ${fmt(d.startDate)} · ${t('Bitiş')}: ${d.endDate ? fmt(d.endDate) : '—'} ${d.notes ? '· ' + h(d.notes) : ''}</div></div>${driverStatusSel(d)}<button class="btn sm" data-de="${d.id}">${t('Düzenle')}</button></div>`).join('')}
   </div>
   <div class="card"><h2>${t('Nöbet düzeni')}</h2>
     <p class="small muted">${t('2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.')}</p>
@@ -618,6 +636,7 @@ function renderDrivers(m) {
     <h3 style="margin-top:14px">${t('Yaklaşan şoför değişimleri')}</h3>
     <div class="timeline">${changeDatesBetween(S.driver, S.driver.cycleDays, d0, addDays(d0, 90)).map(d => `<div class="tl"><b>${fmt(d)}</b>${dayName(d)}<br><span class="muted">${t('Ekip')} ${driverTeamAt(d)} ${t('göreve')}</span></div>`).join('') || `<span class="muted">${t('tarih girilmedi')}</span>`}</div>
   </div></div>`;
+  bindDriverStatus(m);
   $('#dAdd').onclick = () => editDriver(null); $$('[data-de]', m).forEach(b => b.onclick = () => editDriver(b.dataset.de));
   $('#dSave').onclick = () => { S.driver.activeTeam = +$('#dteam').value; S.driver.statusSince = $('#dsince').value || d0; S.driver.nextChange = $('#dnext').value; S.driver.cycleDays = Math.max(1, +$('#dcyc').value || 10); S.driver.customDates = $('#dcustom').value.split(/[,\s]+/).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)); save(); render(); toast(t('Kaydedildi')); };
   $('#dAuto').onclick = () => { const nx = upcomingChangeDates(1)[0]; if (!nx) return toast(t('Önce grup değişim tarihini girin'), true); const half = Math.round(S.settings.cycleDays / 2); let d = addDays(nx, half); if (d < d0) d = addDays(d, S.settings.cycleDays); $('#dnext').value = d; $('#dcyc').value = S.settings.cycleDays; toast(t('Önerilen tarih yazıldı') + ': ' + fmt(d)); };
@@ -704,7 +723,7 @@ function reportHtml(type, o) {
   let body = '';
   if (type === 'plan') {
     const P = planFor(date);
-    body = head(t('Sefer Planı – Değişim Günü'), `${fmt(date)} ${dayName(date)} · ${t('Değişen gruplar')}: ${P.groups.map(g => g.name).join(', ') || '—'} · ${t('Şoför')} ${t('Ekip')} ${driverTeamAt(date)} (${S.drivers.filter(d => d.team === driverTeamAt(date)).map(d => d.name).join(', ')})`);
+    body = head(t('Sefer Planı – Değişim Günü'), `${fmt(date)} ${dayName(date)} · ${t('Değişen gruplar')}: ${P.groups.map(g => g.name).join(', ') || '—'} · ${t('Şoför')} ${t('Ekip')} ${driverTeamAt(date)} (${S.drivers.filter(d => driverActiveAt(d, date)).map(d => d.name).join(', ')})`);
     P.lines.filter(pl => pl.rows.length && (!o.lineId || pl.line.id === o.lineId)).forEach((pl, i) => {
       body += `<div class="sec ${i ? 'pb' : ''}">${h(lname(pl.line))} — ${t('eve dönen')} ${pl.toHome}, ${t('işe giden')} ${pl.toWork}, ${t('toplam')} ${pl.rows.length}${pl.cfg.buses === 2 ? ' · ' + t('2 otobüs') + ' (' + t('Otobüs') + ' 1 ' + t('ekspres') + ': ' + h(placeName(pl.cfg.firstStopBus1)) + ' ' + t('durağından itibaren') + ')' : ''}</div>`;
       if (pl.cfg.note) body += `<div class="small">${t('Not')}: ${h(pl.cfg.note)}</div>`;
@@ -729,7 +748,7 @@ function reportHtml(type, o) {
     const dates = new Set(); S.groups.forEach(g => changeDatesBetween(g, S.settings.cycleDays, date, addDays(date, 180)).forEach(d => dates.add(d))); changeDatesBetween(S.driver, S.driver.cycleDays, date, addDays(date, 180)).forEach(d => dates.add(d));
     body = head(t('Değişim Takvimi'), `${fmt(date)} – ${fmt(addDays(date, 180))}`) + `<table><tr><th>${t('Tarih')}</th><th>${t('Gün')}</th>${S.groups.map(g => `<th>${h(g.name)}</th>`).join('')}<th>${t('Şoför')}</th></tr>` + Array.from(dates).sort().map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td>${S.groups.map(g => { const ch = changeDatesBetween(g, S.settings.cycleDays, d, d).length > 0; const st = groupStatusAt(g, d); return `<td>${ch ? (st === 'work' ? t('İşe gidiş') : t('Eve dönüş')) : (st === 'work' ? t('işte') : t('evde'))}</td>`; }).join('')}<td>${t('Ekip')} ${driverTeamAt(d)}${changeDatesBetween(S.driver, S.driver.cycleDays, d, d).length ? ' ' + t('göreve') : ''}</td></tr>`).join('') + '</table>';
   } else if (type === 'drivers') {
-    body = head(t('Şoför Nöbet Çizelgesi'), `${fmt(date)} · ${t('Görevde')}: ${t('Ekip')} ${driverTeamAt(date)}`) + `<table><tr><th>${t('Ad Soyad')}</th><th>${t('Telefon')}</th><th>${t('Ekip')}</th><th>${t('Durum')}</th><th>${t('İşe başlama')}</th><th>${t('Bitiş')}</th><th>${t('Not')}</th></tr>${S.drivers.map(d => `<tr><td dir="auto">${h(d.name)}</td><td>${h(d.phone)}</td><td>${d.team}</td><td>${d.team === driverTeamAt(date) ? t('Aktif') : t('İstirahatte')}</td><td>${fmt(d.startDate)}</td><td>${d.endDate ? fmt(d.endDate) : '—'}</td><td dir="auto">${h(d.notes)}</td></tr>`).join('')}</table><div class="sec">${t('Yaklaşan şoför değişimleri')}</div><table><tr><th>${t('Tarih')}</th><th>${t('Gün')}</th><th>${t('Göreve gelen ekip')}</th><th>${t('Şoförler')}</th></tr>${changeDatesBetween(S.driver, S.driver.cycleDays, date, addDays(date, 120)).map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td><td>${t('Ekip')} ${driverTeamAt(d)}</td><td dir="auto">${S.drivers.filter(x => x.team === driverTeamAt(d)).map(x => h(x.name)).join(', ')}</td></tr>`).join('')}</table>`;
+    body = head(t('Şoför Nöbet Çizelgesi'), `${fmt(date)} · ${t('Görevde')}: ${t('Ekip')} ${driverTeamAt(date)}`) + `<table><tr><th>${t('Ad Soyad')}</th><th>${t('Telefon')}</th><th>${t('Ekip')}</th><th>${t('Durum')}</th><th>${t('İşe başlama')}</th><th>${t('Bitiş')}</th><th>${t('Not')}</th></tr>${S.drivers.map(d => `<tr><td dir="auto">${h(d.name)}</td><td>${h(d.phone)}</td><td>${d.team}</td><td>${driverActiveAt(d, date) ? t('Aktif') : t('İstirahatte')}</td><td>${fmt(d.startDate)}</td><td>${d.endDate ? fmt(d.endDate) : '—'}</td><td dir="auto">${h(d.notes)}</td></tr>`).join('')}</table><div class="sec">${t('Yaklaşan şoför değişimleri')}</div><table><tr><th>${t('Tarih')}</th><th>${t('Gün')}</th><th>${t('Göreve gelen ekip')}</th><th>${t('Şoförler')}</th></tr>${changeDatesBetween(S.driver, S.driver.cycleDays, date, addDays(date, 120)).map(d => `<tr><td>${fmt(d)}</td><td>${dayName(d)}</td><td>${t('Ekip')} ${driverTeamAt(d)}</td><td dir="auto">${S.drivers.filter(x => x.team === driverTeamAt(d)).map(x => h(x.name)).join(', ')}</td></tr>`).join('')}</table>`;
   }
   return `<div class="page" dir="${LANG === 'ar' ? 'rtl' : 'ltr'}">${letterheadHtml(o.lhId)}${body}${foot()}</div>`;
 }
