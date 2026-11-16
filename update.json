@@ -1,6 +1,6 @@
 {
-  "version": "1.4.0",
-  "notes": "Kişi bazlı durum: İşte / Evde / Serviste (yolda), sefer planına ve sayımlara yansır.",
+  "version": "1.5.0",
+  "notes": "Kişi bazlı 'Bugün nerede': Ev / Kadısiye merkezi / Hama merkezi / Serviste; Genel Durum'da 'Şu an kim nerede' özeti.",
   "files": [
     "www/index.html",
     "www/app.js",

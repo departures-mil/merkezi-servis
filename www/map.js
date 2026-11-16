@@ -145,7 +145,7 @@ function mountMap(container, opts) {
       ends[a.id] = a; ends[b.id] = b; pts.forEach(x => bounds.push(x));
     });
     Object.values(ends).forEach(p => {
-      const cnt = inService.filter(q => q.homeId === p.id || (p.type === 'work' && q.workId === p.id)).length;
+      const cnt = p.type === 'work' ? inService.filter(q => personLocationAt(q, d0) === p.id).length : inService.filter(q => q.homeId === p.id).length;
       addStop(p, cnt, p.type === 'work' ? '#8a7a4e' : '#1f2937', true, async () => {
         const aff = S.mainLines.filter(M => M.fromId === p.id || M.toId === p.id);
         for (const M of aff) { try { await routeMainLine(M); } catch (e) { } } save();
@@ -163,7 +163,7 @@ function mountMap(container, opts) {
     });
     const used = new Set(); S.lines.forEach(Lx => { used.add(Lx.endA); Lx.stops.forEach(s => used.add(s)); }); S.persons.forEach(p => { if (p.homeId) used.add(p.homeId); if (p.workId) used.add(p.workId); });
     S.places.filter(p => used.has(p.id) && visibleP(p)).forEach(p => {
-      const isWork = p.type === 'work'; const cnt = inService.filter(q => q.homeId === p.id || (isWork && q.workId === p.id)).length;
+      const isWork = p.type === 'work'; const cnt = isWork ? inService.filter(q => personLocationAt(q, d0) === p.id).length : inService.filter(q => q.homeId === p.id).length;
       const onLine = S.lines.find(Lx => Lx.stops.includes(p.id));
       addStop(p, cnt, isWork ? '#8a7a4e' : (!isWork && placeExempt(p)) ? '#9ca3af' : onLine ? lineColor(onLine) : '#64748b', false, async () => { for (const M of S.mainLines.filter(M => M.fromId === p.id || M.toId === p.id)) { try { await routeMainLine(M); } catch (e) { } } save(); });
     });
