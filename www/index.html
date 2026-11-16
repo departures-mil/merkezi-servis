@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merkezi Servis</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="lock" class="lock hidden">
+  <div class="lock-box">
+    <img src="assets/logo.png" alt="">
+    <h2>Merkezi Servis</h2>
+    <p>İdareci şifresi</p>
+    <input id="lockPin" type="password" autocomplete="off">
+    <button class="btn primary" id="lockBtn">Giriş</button>
+    <div id="lockErr" class="err"></div>
+  </div>
+</div>
+
+<div id="appShell" class="shell">
+  <aside class="side">
+    <div class="brand">
+      <img src="assets/logo.png" alt="">
+      <div><b>Merkezi Servis</b><small id="brandSub">Servis Yönetimi</small></div>
+    </div>
+    <nav id="nav">
+      <a data-page="dash" class="active">🏠 Genel Durum</a>
+      <a data-page="persons">👥 Kişiler</a>
+      <a data-page="lines">🛣️ Hatlar &amp; Duraklar</a>
+      <a data-page="places">📍 Yerleşim Yerleri</a>
+      <a data-page="shifts">🔄 Vardiya &amp; Değişim</a>
+      <a data-page="drivers">🚌 Şoförler</a>
+      <a data-page="plan">🗓️ Sefer Planı</a>
+      <a data-page="reports">🖨️ Çıktılar</a>
+      <a data-page="settings">⚙️ Ayarlar</a>
+    </nav>
+    <div class="side-foot">
+      <div id="verInfo">v—</div>
+      <div id="saveInfo" class="muted">Kaydedildi</div>
+    </div>
+  </aside>
+  <main id="main" class="main"></main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast hidden"></div>
+<div id="printArea" class="print-area"></div>
+
+<script src="xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
