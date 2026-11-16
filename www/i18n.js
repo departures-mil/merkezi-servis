@@ -2,6 +2,7 @@
 'use strict';
 window.I18N = {
 en: {
+"Grubu sil":"Delete group","Bu grupta {0} kişi var. Kişiler hangi gruba taşınsın?":"This group has {0} people. Move them to which group?","Taşı ve sil":"Move and delete","Grup silindi":"Group deleted",
 "Kadısiye merkezi":"Qadisiyah center","Hama merkezi":"Hama center","Bugün nerede":"Where today","Şu an kim nerede":"Who is where now",
 "Servis kaydı":"Service record","Servise dahil":"Included in service",
 "Serviste (yolda)":"On the bus","Elle verildi; geçerli":"Set manually; valid","tarihine kadar":"until","süresiz":"indefinitely","Gruba göre otomatik":"Automatic by group","Otomatik":"Automatic","Elle değiştirilenler":"Manually changed","Bugünkü durum":"Today's status","Otomatik (gruba göre)":"Automatic (by group)","Elle verilen durum bir sonraki değişim gününe kadar geçerlidir; \"Serviste (yolda)\" sadece bugün için.":"A manual status lasts until the next changeover day; \"On the bus\" is for today only.",
@@ -38,6 +39,7 @@ en: {
 'Şimdi güncelle':'Update now','Şoför':'Driver','Şoför Nöbet Çizelgesi':'Driver Duty Roster','Şoför döngüsü (gün)':'Driver cycle (days)','Şoför ekibi':'Driver team','Şoför ekle':'Add driver','Şoför listesi':'Driver list','Şoför nöbet çizelgesi':'Driver duty roster','Şoför silinsin mi?':'Delete this driver?','Şoförler':'Drivers','Şoförler – bugün':'Drivers – today','Şoförü düzenle':'Edit driver','Şu an':'Now','Şu an görevde olan ekip':'Team currently on duty','şablon':'template','— mevcut yerden durak ekle —':'— add stop from existing place —','— seçiniz —':'— select —'
 },
 ar: {
+"Grubu sil":"حذف الفئة","Bu grupta {0} kişi var. Kişiler hangi gruba taşınsın?":"في هذه الفئة {0} أشخاص. إلى أي فئة يُنقلون؟","Taşı ve sil":"نقل وحذف","Grup silindi":"تم حذف الفئة",
 "Kadısiye merkezi":"مركز القادسية","Hama merkezi":"مركز حماة","Bugün nerede":"أين اليوم","Şu an kim nerede":"من أين الآن",
 "Servis kaydı":"سجل النقل","Servise dahil":"مشمول بالنقل",
 "Serviste (yolda)":"في الحافلة (على الطريق)","Elle verildi; geçerli":"محدد يدوياً؛ صالح","tarihine kadar":"حتى","süresiz":"بلا مدة","Gruba göre otomatik":"تلقائي حسب الفئة","Otomatik":"تلقائي","Elle değiştirilenler":"المعدّلون يدوياً","Bugünkü durum":"حالة اليوم","Otomatik (gruba göre)":"تلقائي (حسب الفئة)","Elle verilen durum bir sonraki değişim gününe kadar geçerlidir; \"Serviste (yolda)\" sadece bugün için.":"الحالة اليدوية صالحة حتى يوم التبديل التالي؛ \"في الحافلة\" لليوم فقط.",

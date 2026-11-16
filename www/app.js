@@ -1,9 +1,9 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
-const GROUPS_DEFAULT = ['A', 'B'];
+const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
 const isElectron = !!window.electronAPI;
 
 // ---------------- dil (i18n) ----------------
@@ -56,10 +56,15 @@ async function loadState() {
   const e = emptyState();
   st.settings = Object.assign(e.settings, st.settings || {});
   st.groups = st.groups && st.groups.length ? st.groups : e.groups;
-  // A1/B1 alt grupları A/B ile birleştir (yalnızca A ve B değişim grubu)
-  const normG = g => g === 'A1' ? 'A' : g === 'B1' ? 'B' : g;
-  (st.persons || []).forEach(p => { if (p.group === 'A1' || p.group === 'B1') { p.subgroup = p.group; p.group = normG(p.group); } });
-  if (st.groups.some(g => g.id === 'A1' || g.id === 'B1')) st.groups = st.groups.filter(g => g.id !== 'A1' && g.id !== 'B1');
+  // 4 grup: A, A1, B, B2 (Excel: A, A1, B, B1→B2). Eski sürümde birleştirilenleri geri ayır.
+  if (!st.groupsV2) {
+    const copyOf = (src, id) => { const g = st.groups.find(x => x.id === src); return g ? Object.assign({}, g, { id, name: id, customDates: (g.customDates || []).slice() }) : { id, name: id, status: src === 'A' ? 'work' : 'home', statusSince: todayISO(), nextChange: '', customDates: [] }; };
+    if (!st.groups.some(g => g.id === 'A1')) st.groups.push(copyOf('A', 'A1'));
+    if (!st.groups.some(g => g.id === 'B2')) { const b1 = st.groups.find(g => g.id === 'B1'); if (b1) { b1.id = 'B2'; b1.name = 'B2'; } else st.groups.push(copyOf('B', 'B2')); }
+    (st.persons || []).forEach(p => { const sg = p.subgroup || p.group; if (sg === 'A1') p.group = 'A1'; else if (sg === 'B1' || sg === 'B2') p.group = 'B2'; });
+    const ord = ['A', 'A1', 'B', 'B2']; st.groups.sort((a, b) => (ord.indexOf(a.id) + 1 || 99) - (ord.indexOf(b.id) + 1 || 99));
+    st.groupsV2 = true;
+  }
   st.driver = Object.assign(e.driver, st.driver || {});
   st.drivers = st.drivers || e.drivers; st.letterheads = st.letterheads && st.letterheads.length ? st.letterheads : e.letterheads;
   st.places = st.places || []; st.lines = st.lines || []; ensureMainLines(st);
@@ -584,7 +589,11 @@ function renderShifts(m) {
     save(); render(); toast(t('Vardiya ayarları kaydedildi'));
   };
   $('#gAdd').onclick = () => modal(`<h2>${t('Yeni grup')}</h2><label class="f">${t('Grup kodu')}<input id="ng"></label><div class="actions">${cancelBtn()}<button class="btn primary" id="ngOk">${t('Ekle')}</button></div>`, (r, close) => { $('#ngOk', r).onclick = () => { const id = $('#ng', r).value.trim(); if (!id || groupById(id)) return toast(t('Geçersiz veya mevcut kod'), true); S.groups.push({ id, name: id, status: 'home', statusSince: d0, nextChange: '', customDates: [] }); save(); close(); render(); }; });
-  $$('[data-gdel]', m).forEach(b => b.onclick = () => { const id = b.dataset.gdel; if (S.persons.some(p => p.group === id)) return toast(t('Bu grupta kişiler var'), true); confirmDlg(t('Grup silinsin mi?'), () => { S.groups = S.groups.filter(g => g.id !== id); save(); render(); }); });
+  $$('[data-gdel]', m).forEach(b => b.onclick = () => {
+    const id = b.dataset.gdel; const n = S.persons.filter(p => p.group === id).length; const others = S.groups.filter(g => g.id !== id);
+    if (!n) return confirmDlg(t('Grup silinsin mi?'), () => { S.groups = others; save(); render(); });
+    modal(`<h2>${t('Grubu sil')}: ${h(id)}</h2><p>${t('Bu grupta {0} kişi var. Kişiler hangi gruba taşınsın?', n)}</p><select id="gmv" style="width:100%"><option value="">— ${t('Grupsuz')} —</option>${others.map(g => `<option value="${h(g.id)}">${h(g.name)}</option>`).join('')}</select><div class="actions">${cancelBtn()}<button class="btn danger" id="gmvOk">${t('Taşı ve sil')}</button></div>`, (r, close) => { $('#gmvOk', r).onclick = () => { const to = $('#gmv', r).value; S.persons.forEach(p => { if (p.group === id) p.group = to; }); S.groups = others; save(); close(); render(); toast(t('Grup silindi')); }; });
+  });
   $('#gApplyAll').onclick = () => { const a = $$('tr[data-g]', m); const first = a[0] && $('.gnext', a[0]).value; if (!first) return toast(t('Önce ilk grubun sonraki değişim tarihini girin'), true); a.forEach(tr => { $('.gnext', tr).value = first; }); toast(t("Tüm gruplara uygulandı; Kaydet'e basın")); };
 }
 
@@ -773,7 +782,7 @@ async function importPersonsExcel() {
   let added = 0, updated = 0;
   rows.slice(1).forEach(r => {
     const name = clean(r[C.name]); if (!name) return;
-    const grpRaw = clean(r[C.grp]); const grp = /^A/i.test(grpRaw) ? 'A' : /^B/i.test(grpRaw) ? 'B' : grpRaw; const from = clean(r[C.from]), to = clean(r[C.to]);
+    const grpRaw = clean(r[C.grp]).toUpperCase(); const grp = grpRaw === 'B1' && !groupById('B1') ? 'B2' : grpRaw; const from = clean(r[C.from]), to = clean(r[C.to]);
     const work = C.work >= 0 ? clean(r[C.work]) : (grp.startsWith('A') ? from : grp.startsWith('B') ? to : '');
     const wp = workPlaces().find(w => work && (work.includes(w.name) || w.name.includes(work) || (work.includes('القادسية') && w.name.includes('القادسية')) || (work.includes('حماة') && w.name.includes('حماة'))));
     const reg = clean(r[C.reg]);
