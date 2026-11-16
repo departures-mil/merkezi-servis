@@ -1,8 +1,7 @@
 // Merkezi Servis – Electron ana süreç
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const https = require('https');
 
 const BUNDLED_WWW = path.join(__dirname, 'www');
 const UPDATE_DIR = () => path.join(app.getPath('userData'), 'app-update');
@@ -26,17 +25,29 @@ function activeWww() {
   return BUNDLED_WWW;
 }
 
-function fetchText(url) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'MerkeziServis', 'Cache-Control': 'no-cache' } }, res => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) return fetchText(res.headers.location).then(resolve, reject);
-      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode + ' – ' + url)); }
-      const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => resolve(Buffer.concat(chunks)));
-    });
-    req.on('error', reject); req.setTimeout(30000, () => { req.destroy(new Error('Zaman aşımı')); });
-  });
+// Chromium ağı (sistem proxy/VPN ayarlarını kullanır); raw.githubusercontent erişilemezse jsDelivr yedeği
+const MIRRORS = base => {
+  const m = base.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\//);
+  return m ? [base, `https://cdn.jsdelivr.net/gh/${m[1]}/${m[2]}@${m[3]}/`] : [base];
+};
+async function fetchOne(url) {
+  const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await net.fetch(url, { signal: ctrl.signal, cache: 'no-store', headers: { 'User-Agent': 'MerkeziServis' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' – ' + url);
+    return Buffer.from(await r.arrayBuffer());
+  } finally { clearTimeout(tm); }
 }
-
+let workingBase = null;
+async function fetchFrom(base, rel) {
+  const list = workingBase && MIRRORS(base).includes(workingBase) ? [workingBase, ...MIRRORS(base).filter(x => x !== workingBase)] : MIRRORS(base);
+  let lastErr;
+  for (const b of list) {
+    try { const buf = await fetchOne(b + rel + (b.includes('jsdelivr') ? '' : (rel.includes('?') ? '&' : '?') + 't=' + Date.now())); workingBase = b; return buf; }
+    catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
 let win;
 function createWindow() {
   win = new BrowserWindow({
@@ -81,19 +92,19 @@ ipcMain.handle('app:info', () => ({
 // ---- Güncelleme: GitHub raw üzerinden ----
 ipcMain.handle('update:check', async (e, baseUrl) => {
   const base = baseUrl.replace(/\/?$/, '/');
-  const manifest = JSON.parse((await fetchText(base + 'update.json?t=' + Date.now())).toString('utf8'));
+  const manifest = JSON.parse((await fetchFrom(base, 'update.json')).toString('utf8'));
   const current = readVersion(activeWww());
   return { current, remote: manifest.version, available: cmpVer(manifest.version, current) > 0, notes: manifest.notes || '', files: manifest.files || [] };
 });
 ipcMain.handle('update:apply', async (e, baseUrl) => {
   const base = baseUrl.replace(/\/?$/, '/');
-  const manifest = JSON.parse((await fetchText(base + 'update.json?t=' + Date.now())).toString('utf8'));
+  const manifest = JSON.parse((await fetchFrom(base, 'update.json')).toString('utf8'));
   const files = manifest.files || [];
   if (!files.length) throw new Error('Manifest dosya listesi boş');
   const tmp = path.join(UPDATE_DIR(), 'tmp-' + Date.now());
   fs.mkdirSync(tmp, { recursive: true });
   for (const f of files) {
-    const buf = await fetchText(base + f + '?t=' + Date.now());
+    const buf = await fetchFrom(base, f);
     const dest = path.join(tmp, f);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, buf);
