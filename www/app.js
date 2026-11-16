@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'B'];
@@ -43,7 +43,7 @@ function emptyState() {
   };
 }
 async function loadSeed(st) {
-  try { const r = await fetch('seed.json'); const seed = await r.json(); st.places = seed.places; st.lines = seed.lines; st.persons = seed.persons; } catch (e) { console.warn('seed yüklenemedi', e); }
+  try { const r = await fetch('seed.json'); const seed = await r.json(); st.places = seed.places; st.lines = seed.lines; st.persons = seed.persons; delete st.mainLines; ensureMainLines(st); } catch (e) { console.warn('seed yüklenemedi', e); }
   return st;
 }
 const LS_KEY = 'merkezi-servis-state';
@@ -62,7 +62,8 @@ async function loadState() {
   if (st.groups.some(g => g.id === 'A1' || g.id === 'B1')) st.groups = st.groups.filter(g => g.id !== 'A1' && g.id !== 'B1');
   st.driver = Object.assign(e.driver, st.driver || {});
   st.drivers = st.drivers || e.drivers; st.letterheads = st.letterheads && st.letterheads.length ? st.letterheads : e.letterheads;
-  st.plans = st.plans || {}; st.places = st.places || []; st.lines = st.lines || []; st.persons = st.persons || [];
+  st.places = st.places || []; st.lines = st.lines || []; ensureMainLines(st);
+  st.plans = st.plans || {}; st.lines = st.lines || []; st.persons = st.persons || [];
   return st;
 }
 let saveT;
@@ -82,12 +83,6 @@ const placeName = id => (placeById(id) || {}).name || '—';
 const lineById = id => S.lines.find(l => l.id === id);
 const lname = L => L ? ((LANG === 'ar' && L.nameAr) || (LANG === 'en' && L.nameEn) || L.name) : '—';
 const lineName = id => lname(lineById(id));
-function lineEndB(L) {
-  if (L.endB && placeById(L.endB)) return L.endB;
-  const keys = ['درعا', 'جسر الشغور', 'دمشق', 'الشام', 'حلب', 'Dera', 'Cisr', 'Şam', 'Halep'];
-  for (const kw of keys) { if (lname(L).includes(kw) || L.name.includes(kw)) { const hit = L.stops.map(placeById).find(p => p && p.name.includes(kw)); if (hit) return hit.id; } }
-  return L.stops[L.stops.length - 1] || '';
-}
 const groupById = id => S.groups.find(g => g.id === id);
 const workPlaces = () => S.places.filter(p => p.type === 'work');
 const homePlaces = () => S.places.filter(p => p.type !== 'work');
@@ -150,7 +145,7 @@ function planFor(dateISO) {
 
 // ---------------- router ----------------
 let page = 'dash';
-const NAV = [['dash', '🏠', 'Genel Durum'], ['persons', '👥', 'Kişiler'], ['lines', '🛣️', 'Hatlar & Duraklar'], ['places', '📍', 'Yerleşim Yerleri'], ['shifts', '🔄', 'Vardiya & Değişim'], ['drivers', '🚌', 'Şoförler'], ['plan', '🗓️', 'Sefer Planı'], ['reports', '🖨️', 'Çıktılar'], ['settings', '⚙️', 'Ayarlar']];
+const NAV = [['dash', '🏠', 'Genel Durum'], ['persons', '👥', 'Kişiler'], ['mainlines', '🧭', 'Ana Hatlar'], ['lines', '🛣️', 'Hatlar & Duraklar'], ['places', '📍', 'Yerleşim Yerleri'], ['shifts', '🔄', 'Vardiya & Değişim'], ['drivers', '🚌', 'Şoförler'], ['plan', '🗓️', 'Sefer Planı'], ['reports', '🖨️', 'Çıktılar'], ['settings', '⚙️', 'Ayarlar']];
 function renderNav() {
   $('#nav').innerHTML = NAV.map(([p, ic, lb]) => `<a data-page="${p}" class="${p === page ? 'active' : ''}">${ic} ${h(t(lb))}</a>`).join('');
   $$('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
@@ -163,14 +158,33 @@ function renderTopbar() {
   const tb = $('#topbar'); if (!tb) return;
   tb.innerHTML = `<span id="saveInfoTop" class="muted">${$('#saveInfo') ? $('#saveInfo').textContent : ''}</span>
     <span class="menu" id="syncMenu"><button class="btn sm" id="syncBtn">⇄ ${t('Eşitle')}</button><div class="dd"><a id="tbExp">⬇ ${t('Yedek al (JSON)')}</a><a id="tbImp">⬆ ${t('Yedekten geri yükle')}</a><a id="tbXls">📗 ${t("Excel'e ver")}</a></div></span>
-    <button class="btn sm" id="updBtn">⟳ ${t('Güncelle')}${updateAvail ? '<span class="dot-new"></span>' : ''}</button>`;
+    <span class="menu" id="updMenu"><button class="btn sm" id="updBtn">⟳ ${t('Güncelle')}${updateAvail ? '<span class="dot-new"></span>' : ''}</button><div class="dd upd" id="updDd"></div></span>`;
   const mn = $('#syncMenu', tb);
   $('#syncBtn', tb).onclick = e => { e.stopPropagation(); mn.classList.toggle('open'); };
   document.addEventListener('click', () => mn.classList.remove('open'), { once: true });
   $('#tbExp', tb).onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
   $('#tbImp', tb).onclick = () => importBackup();
   $('#tbXls', tb).onclick = () => exportPersonsExcel();
-  $('#updBtn', tb).onclick = () => { go('settings'); setTimeout(() => { const b = $('#updCheck'); if (b) b.click(); }, 50); };
+  const um = $('#updMenu', tb), ud = $('#updDd', tb);
+  ud.onclick = e => e.stopPropagation();
+  $('#updBtn', tb).onclick = async e => {
+    e.stopPropagation(); mn.classList.remove('open');
+    if (um.classList.contains('open')) { um.classList.remove('open'); return; }
+    um.classList.add('open'); document.addEventListener('click', () => um.classList.remove('open'), { once: true });
+    const url = S.settings.updateUrl || DEFAULT_UPDATE_URL;
+    if (!isElectron) { ud.innerHTML = `<div class="pad">${t('Sadece masaüstü uygulamasında.')}</div>`; return; }
+    ud.innerHTML = `<div class="pad">${t('Kontrol ediliyor…')}</div>`;
+    try {
+      const r = await window.electronAPI.checkUpdate(url); updateAvail = r.available ? r.remote : null;
+      if (!r.available) { ud.innerHTML = `<div class="pad">✓ ${t('Güncel.')} <span class="muted">v${h(r.current)}</span></div>`; const d = $('#updBtn .dot-new', tb); if (d) d.remove(); return; }
+      ud.innerHTML = `<div class="pad"><b>${t('Yeni sürüm bulundu')}: v${h(r.remote)}</b> <span class="muted">(${t('mevcut')} v${h(r.current)})</span><div class="small muted" style="margin:6px 0">${h(r.notes)}</div><button class="btn primary sm" id="updGoTop">${t('Şimdi güncelle')}</button></div>`;
+      $('#updGoTop', ud).onclick = async () => {
+        ud.innerHTML = `<div class="pad">${t('İndiriliyor…')}</div>`;
+        try { const a = await window.electronAPI.applyUpdate(url); ud.innerHTML = `<div class="pad">✓ ${t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version)}</div>`; save(true); setTimeout(() => window.electronAPI.relaunch(), 900); }
+        catch (err) { ud.innerHTML = `<div class="pad err">${t('Güncelleme hatası')}: ${h(err.message || err)}</div>`; }
+      };
+    } catch (err) { ud.innerHTML = `<div class="pad err">${t('Kontrol edilemedi')}: ${h(err.message || err)}</div>`; }
+  };
 }
 async function silentUpdateCheck() {
   if (!isElectron) return;
@@ -188,7 +202,8 @@ function applyLang(l) {
 function go(p) { page = p; $$('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === p)); render(); $('#main').scrollTop = 0; }
 function render() {
   const m = $('#main');
-  const fn = { dash: renderDash, persons: renderPersons, lines: renderLines, places: renderPlaces, shifts: renderShifts, drivers: renderDrivers, plan: renderPlan, reports: renderReports, settings: renderSettings }[page];
+  if (page !== 'dash' && page !== 'mainlines' && LMAP) { try { LMAP.remove(); } catch (e) { } LMAP = null; }
+  const fn = { dash: renderDash, mainlines: renderMainLines, persons: renderPersons, lines: renderLines, places: renderPlaces, shifts: renderShifts, drivers: renderDrivers, plan: renderPlan, reports: renderReports, settings: renderSettings }[page];
   m.innerHTML = ''; fn(m);
 }
 
@@ -209,154 +224,6 @@ const opt = (list, val, label = x => x.name, value = x => x.id, empty) => (empty
 const cancelBtn = () => `<button class="btn" data-close>${t('Vazgeç')}</button>`;
 const statusBadge = st => st ? (st === 'work' ? `<span class="badge ok">${t('İşte')}</span>` : `<span class="badge gray">${t('Evde')}</span>`) : '';
 
-// ================= HARİTA =================
-const LINE_COLORS = ['#1d4ed8', '#b45309', '#15803d', '#be185d', '#7c3aed', '#0e7490', '#b91c1c', '#4d7c0f'];
-const lineColor = L => L.color || LINE_COLORS[Math.max(0, S.lines.indexOf(L)) % LINE_COLORS.length];
-const MAP = { W: 900, H: 640, lon0: 35.4, lon1: 42.6, lat0: 32.1, lat1: 37.5 };
-let mapView = { x: 0, y: 0, w: 320, h: 420, editing: false };
-function proj(lon, lat) { const kx = MAP.W / (MAP.lon1 - MAP.lon0); const ky = MAP.H / (MAP.lat1 - MAP.lat0); return [(lon - MAP.lon0) * kx, (MAP.lat1 - lat) * ky]; }
-function unproj(x, y) { const kx = MAP.W / (MAP.lon1 - MAP.lon0); const ky = MAP.H / (MAP.lat1 - MAP.lat0); return [x / kx + MAP.lon0, MAP.lat1 - y / ky]; }
-function smoothPath(pts) { if (pts.length < 2) return ''; let d = `M${pts[0][0]},${pts[0][1]}`; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2; const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6]; d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`; } return d; }
-function mapHtml() {
-  const d0 = todayISO();
-  const mode = S.settings.mapMode || (S.settings.mapSimple ? 'simple' : 'full'); const simple = mode !== 'full', linesOnly = mode === 'lines', labels = S.settings.mapLabels !== false;
-  const hostEl = document.getElementById('mapHost'); const k = mapView.w / ((hostEl && hostEl.clientWidth) || 1000) * 1.25; // 1 birim ≈ 1.25 px: ekranda sabit boyut
-  const inService = S.persons.filter(personInService);
-  const used = new Set(); S.lines.forEach(L => { used.add(L.endA); L.stops.forEach(s => used.add(s)); }); S.persons.forEach(p => { if (p.homeId) used.add(p.homeId); if (p.workId) used.add(p.workId); });
-  const pts = {}; S.places.forEach(p => { if (used.has(p.id)) { const c = placeCoord(p); pts[p.id] = { ...c, xy: proj(c.lon, c.lat), p }; } });
-  const syria = GEO.syria.map(([lo, la]) => proj(lo, la).join(',')).join(' ');
-  let svg = `<svg id="mapSvg" viewBox="${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}" xmlns="http://www.w3.org/2000/svg" class="${simple ? 'simple' : ''} ${labels ? '' : 'nolabels'}">
-  <defs><linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dbeafe"/><stop offset="1" stop-color="#bfdbfe"/></linearGradient>
-  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${1.5 * k}" stdDeviation="${1.5 * k}" flood-color="#000" flood-opacity=".25"/></filter>
-  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#0f172a" stroke-opacity=".04"/></pattern></defs>
-  <rect x="-2000" y="-2000" width="5000" height="5000" fill="url(#sea)"/>
-  <polygon points="${syria}" fill="${simple ? '#f8f6ee' : '#f5f0e1'}" stroke="#a89b6b" stroke-width="${1.2 * k}"/>
-  ${simple ? '' : `<polygon points="${syria}" fill="url(#grid)"/>`}`;
-  GEO.neighbors.forEach(([tr, ar, en, lo, la]) => { const [x, y] = proj(lo, la); svg += `<text x="${x}" y="${y}" class="mlbl-country" font-size="${11 * k}">${h(LANG === 'ar' ? ar : LANG === 'en' ? en : tr)}</text>`; });
-  if (!simple) GEO.cities.forEach(([n, lo, la]) => { const [x, y] = proj(lo, la); svg += `<circle cx="${x}" cy="${y}" r="${1.6 * k}" fill="#94a3b8"/><text x="${x + 3 * k}" y="${y - 3 * k}" class="mlbl-city" font-size="${7 * k}">${h(n)}</text>`; });
-  const hidden = new Set(S.settings.mapHiddenLines || []);
-  const visible = ({ p }) => { if (hidden.size && S.lines.some(L => hidden.has(L.id) && L.stops.includes(p.id)) && !S.lines.some(L => !hidden.has(L.id) && (L.stops.includes(p.id) || L.endA === p.id))) return false; if (!simple) return true; if (p.type === 'work') return true; return inService.some(q => q.homeId === p.id); };
-  if (linesOnly) {
-    const ends = {};
-    S.lines.forEach((L, li) => {
-      if (hidden.has(L.id)) return; const cnt = inService.filter(q => q.lineId === L.id).length; if (!cnt) return;
-      const a = pts[L.endA], bId = lineEndB(L), b = pts[bId]; if (!a || !b) return;
-      const col = lineColor(L);
-      const [x1, y1] = a.xy, [x2, y2] = b.xy; const dx = x2 - x1, dy = y2 - y1; const len = Math.hypot(dx, dy) || 1;
-      const bend = ((li % 2) ? -1 : 1) * Math.min(40, len * 0.18); const cx = (x1 + x2) / 2 - dy / len * bend, cy = (y1 + y2) / 2 + dx / len * bend;
-      svg += `<path d="M${x1},${y1} Q${cx},${cy} ${x2},${y2}" class="mline-halo" stroke-width="${9 * k}"/><path d="M${x1},${y1} Q${cx},${cy} ${x2},${y2}" class="mline" stroke="${col}" stroke-width="${4 * k}" stroke-dasharray="${14 * k} ${7 * k}" data-line="${L.id}"><title>${h(lname(L))}</title></path>`;
-      const tt = (li % 2) ? 0.3 : 0.65; const mx = (1 - tt) * (1 - tt) * x1 + 2 * (1 - tt) * tt * cx + tt * tt * x2, my = (1 - tt) * (1 - tt) * y1 + 2 * (1 - tt) * tt * cy + tt * tt * y2; const nm = lname(L) + ' · ' + cnt;
-      svg += `<g class="mline-tag" data-line="${L.id}" transform="translate(${mx},${my}) scale(${k})"><rect x="${-(nm.length * 3.2 + 8)}" y="-9" rx="5" ry="5" width="${nm.length * 6.4 + 16}" height="18" fill="${col}"/><text x="0" y="4" text-anchor="middle" font-size="11">${h(nm)}</text></g>`;
-      ends[L.endA] = a; ends[bId] = b;
-    });
-    Object.values(ends).forEach(({ p, xy }) => {
-      const [x, y] = xy; const isWork = p.type === 'work';
-      const cnt = inService.filter(q => q.homeId === p.id || (isWork && q.workId === p.id)).length;
-      svg += `<g class="mstop ${isWork ? 'work' : ''}" data-place="${p.id}" transform="translate(${x},${y}) scale(${k})">${isWork ? '<rect x="-12" y="-12" width="24" height="24" rx="6" fill="#8a7a4e" stroke="#fff" stroke-width="2.5"/><text y="5" class="mico" font-size="14">🏭</text>' : '<circle r="10" fill="#1f2937" stroke="#fff" stroke-width="2.5"/>'}<text y="${isWork ? -17 : -15}" class="mname" font-size="11">${h(p.name)}</text><title>${h(p.name)} — ${cnt} ${t('kişi')}</title></g>`;
-    });
-    svg += '</svg>'; return svg;
-  }
-  // hatlar
-  S.lines.forEach(L => {
-    if (hidden.has(L.id)) return;
-    const seq = [L.endA, ...L.stops].filter(id => pts[id] && visible(pts[id])).map(id => pts[id].xy);
-    if (seq.length < 2) return;
-    const col = lineColor(L); const d = smoothPath(seq);
-    svg += `<path d="${d}" class="mline-halo" stroke-width="${(simple ? 5 : 7) * k}"/><path d="${d}" class="mline" stroke="${col}" stroke-width="${(simple ? 2.5 : 3.5) * k}" stroke-dasharray="${10 * k} ${5 * k}" data-line="${L.id}"><title>${h(lname(L))}</title></path>`;
-    const mid = seq[Math.floor(seq.length / 2)]; const nm = lname(L);
-    svg += `<g class="mline-tag" data-line="${L.id}" transform="translate(${mid[0]},${mid[1]}) scale(${k})"><rect x="4" y="-16" rx="4" ry="4" width="${nm.length * 5.6 + 10}" height="14" fill="${col}"/><text x="9" y="-6">${h(nm)}</text></g>`;
-  });
-  // duraklar
-  Object.values(pts).filter(visible).forEach(({ p, xy, unknown }) => {
-    const [x, y] = xy; const isWork = p.type === 'work';
-    const ps = inService.filter(q => q.homeId === p.id || (isWork && q.workId === p.id));
-    const atWork = ps.filter(q => stWork(groupById(q.group), d0)).length;
-    const ex = !isWork && placeExempt(p);
-    const onLine = S.lines.find(L => L.stops.includes(p.id));
-    const col = isWork ? '#8a7a4e' : ex ? '#9ca3af' : onLine ? lineColor(onLine) : '#64748b';
-    const r = Math.min(11, 5 + ps.length * 0.6);
-    svg += `<g class="mstop ${isWork ? 'work' : ''} ${mapView.editing ? 'drag' : ''}" data-place="${p.id}" transform="translate(${x},${y}) scale(${k})">`;
-    if (isWork) svg += `<rect x="-9" y="-9" width="18" height="18" rx="4" fill="${col}" stroke="#fff" stroke-width="2"/><text y="4" class="mico">🏭</text>`;
-    else svg += `<circle r="${r}" fill="${col}" stroke="#fff" stroke-width="1.8" ${unknown ? 'stroke-dasharray="2 1.5"' : ''}/>${ps.length ? `<text y="3" class="mcnt">${ps.length}</text>` : ''}`;
-    svg += `<text y="${isWork ? -13 : -(r + 3)}" class="mname">${h(p.name)}</text><title>${h(p.name)} — ${ps.length} ${t('kişi')}${isWork ? '' : ' · ' + t('işte') + ' ' + atWork + ' · ' + t('evde') + ' ' + (ps.length - atWork)}</title></g>`;
-  });
-  svg += '</svg>';
-  return svg;
-}
-function mountMap(container) {
-  container.innerHTML = `<div class="map-wrap"><div class="map-tools">
-    <button class="btn sm" id="mzi">＋</button><button class="btn sm" id="mzo">－</button><button class="btn sm" id="mzr">${t('Sıfırla')}</button>
-    <select id="mmode" class="sm">${[['full', 'Ayrıntılı görünüm'], ['simple', 'Sade görünüm'], ['lines', 'Sadece hatlar']].map(([v, l]) => `<option value="${v}" ${(S.settings.mapMode || 'full') === v ? 'selected' : ''}>${t(l)}</option>`).join('')}</select>
-    <button class="btn sm ${S.settings.mapLabels !== false ? 'primary' : ''}" id="mlabels">${t('Adlar')}</button>
-    <button class="btn sm ${mapView.editing ? 'primary' : ''}" id="medit">${mapView.editing ? t('Konum düzenleme açık') : t('Konumları düzenle')}</button>
-    <span class="legend">${S.lines.map(L => { const off = (S.settings.mapHiddenLines || []).includes(L.id); return `<span class="lg ${off ? 'off' : ''}" data-tline="${L.id}" title="${t('Göster / gizle')}"><i style="background:${lineColor(L)}"></i>${h(lname(L))}</span>`; }).join('')}</span>
-    <span style="flex:1"></span><button class="btn sm" id="mhide">${t('Haritayı gizle')}</button></div>
-    <div id="mapHost"></div><div id="mapPop" class="map-pop hidden"></div></div>`;
-  const host = $('#mapHost', container);
-  const draw = () => { host.innerHTML = mapHtml(); bind(); };
-  const pop = $('#mapPop', container);
-  const showPop = (pid, ev) => {
-    const p = placeById(pid); const d0 = todayISO();
-    const ps = S.persons.filter(q => q.homeId === pid || (p.type === 'work' && q.workId === pid));
-    const ins = ps.filter(personInService); const atWork = ins.filter(q => stWork(groupById(q.group), d0)).length;
-    const Ls = S.lines.filter(L => L.stops.includes(pid) || L.endA === pid);
-    pop.innerHTML = `<div class="row between"><b dir="auto">${h(p.name)}</b><button class="btn sm" id="popX">✕</button></div>
-      <div class="small muted">${p.type === 'work' ? t('İşyeri') : t('Ev')} · ${Ls.map(L => h(lname(L))).join(', ') || t('hatta bağlı değil')}${placeExempt(p) && p.type !== 'work' ? ' · <span class="badge warn">' + t('muaf yer') + '</span>' : ''}</div>
-      <div class="kv" style="margin:6px 0"><b>${t('Serviste')}</b><span>${ins.length} (${t('işte')} ${atWork} / ${t('evde')} ${ins.length - atWork})</span><b>${t('Muaf / pasif')}</b><span>${ps.length - ins.length}</span></div>
-      <div class="pill-list">${ins.slice(0, 12).map(q => `<span class="pill" data-pp="${q.id}" title="${t('Düzenle')}"><span dir="auto">${h(q.name)}</span><span class="muted">${h(q.group)}</span></span>`).join('')}${ins.length > 12 ? `<span class="pill">+${ins.length - 12}</span>` : ''}</div>
-      <div class="row" style="margin-top:8px;gap:6px">
-        <button class="btn sm primary" id="popAdd">+ ${t('Kişi ekle')}</button>
-        <button class="btn sm" id="popList">${t('Kişileri gör')}</button>
-        ${Ls[0] ? `<button class="btn sm" id="popLine">${t('Hattı aç')}</button>` : ''}
-        <button class="btn sm" id="popPlace">${t('Yeri düzenle')}</button></div>`;
-    pop.classList.remove('hidden');
-    const r = host.getBoundingClientRect(); let px = ev.clientX - r.left + 12, py = ev.clientY - r.top + 12; if (px + 330 > r.width) px = Math.max(0, ev.clientX - r.left - 340); if (py + 240 > r.height) py = Math.max(0, py - 250); pop.style.left = px + 'px'; pop.style.top = py + 'px';
-    $('#popX', pop).onclick = () => pop.classList.add('hidden');
-    $('#popAdd', pop).onclick = () => editPerson(null, { homeId: p.type === 'work' ? '' : pid, workId: p.type === 'work' ? pid : '', lineId: (Ls[0] || {}).id || '' });
-    $('#popList', pop).onclick = () => { pf = { q: '', group: '', line: '', status: '', work: '', place: pid }; go('persons'); };
-    const pl = $('#popLine', pop); if (pl) pl.onclick = () => { selLine = Ls[0].id; go('lines'); };
-    $('#popPlace', pop).onclick = () => editPlace(pid);
-    $$('[data-pp]', pop).forEach(el => el.onclick = () => editPerson(el.dataset.pp));
-  };
-  let drag = null, panning = null, zoomT;
-  const svgPt = (svg, ev) => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const m = svg.getScreenCTM().inverse(); const q = pt.matrixTransform(m); return [q.x, q.y]; };
-  function bind() {
-    const svg = $('#mapSvg', host);
-    $$('.mstop', svg).forEach(g => {
-      g.addEventListener('mousedown', ev => { if (!mapView.editing) return; ev.stopPropagation(); drag = { id: g.dataset.place, g }; });
-      g.addEventListener('click', ev => { if (mapView.editing) return; ev.stopPropagation(); showPop(g.dataset.place, ev); });
-    });
-    $$('[data-line]', svg).forEach(el => el.addEventListener('click', ev => { ev.stopPropagation(); selLine = el.dataset.line; go('lines'); }));
-    svg.addEventListener('mousedown', ev => { panning = { x: ev.clientX, y: ev.clientY, vx: mapView.x, vy: mapView.y, scale: mapView.w / svg.getBoundingClientRect().width }; });
-    svg.addEventListener('mousemove', ev => {
-      if (drag) { const [x, y] = svgPt(svg, ev); drag.g.setAttribute('transform', `translate(${x},${y}) scale(${mapView.w / (host.clientWidth || 1000) * 1.25})`); drag.xy = [x, y]; return; }
-      if (panning) { mapView.x = panning.vx - (ev.clientX - panning.x) * panning.scale; mapView.y = panning.vy - (ev.clientY - panning.y) * panning.scale; svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }
-    });
-    const up = () => { if (drag && drag.xy) { const p = placeById(drag.id); const [lon, lat] = unproj(drag.xy[0], drag.xy[1]); p.lon = +lon.toFixed(4); p.lat = +lat.toFixed(4); save(); draw(); } drag = null; panning = null; };
-    svg.addEventListener('mouseup', up); svg.addEventListener('mouseleave', up);
-    svg.addEventListener('wheel', ev => { ev.preventDefault(); const f = ev.deltaY > 0 ? 1.15 : 1 / 1.15; const [mx, my] = svgPt(svg, ev); mapView.x = mx - (mx - mapView.x) * f; mapView.y = my - (my - mapView.y) * f; mapView.w *= f; mapView.h *= f; clearTimeout(zoomT); zoomT = setTimeout(draw, 60); svg.setAttribute('viewBox', `${mapView.x} ${mapView.y} ${mapView.w} ${mapView.h}`); }, { passive: false });
-    svg.addEventListener('click', () => pop.classList.add('hidden'));
-  }
-  const zoom = f => { const cx = mapView.x + mapView.w / 2, cy = mapView.y + mapView.h / 2; mapView.w *= f; mapView.h *= f; mapView.x = cx - mapView.w / 2; mapView.y = cy - mapView.h / 2; draw(); };
-  $('#mzi', container).onclick = () => zoom(1 / 1.3); $('#mzo', container).onclick = () => zoom(1.3);
-  $('#mzr', container).onclick = () => { fitMap(); draw(); };
-  $('#medit', container).onclick = () => { mapView.editing = !mapView.editing; mountMap(container); if (mapView.editing) toast(t('Durakları sürükleyerek yerini değiştirebilirsiniz')); };
-  $('#mmode', container).onchange = e => { S.settings.mapMode = e.target.value; S.settings.mapSimple = e.target.value !== 'full'; save(); fitMap(); mountMap(container); };
-  $('#mlabels', container).onclick = () => { S.settings.mapLabels = S.settings.mapLabels === false ? true : false; save(); mountMap(container); };
-  $$('[data-tline]', container).forEach(el => el.onclick = () => { const id = el.dataset.tline; let hl = S.settings.mapHiddenLines || []; hl = hl.includes(id) ? hl.filter(x => x !== id) : hl.concat(id); S.settings.mapHiddenLines = hl; save(); mountMap(container); });
-  $('#mhide', container).onclick = () => { S.settings.mapHidden = true; save(); render(); };
-  draw();
-}
-function fitMap() {
-  const ids = new Set(); const lo = (S.settings.mapMode === 'lines'); S.lines.forEach(L => { if (lo && !S.persons.some(q => q.lineId === L.id && personInService(q))) return; ids.add(L.endA); if (lo) { ids.add(lineEndB(L)); return; } L.stops.forEach(s => { const pl = placeById(s); if (pl && !placeExempt(pl)) ids.add(s); }); });
-  const xs = [], ys = []; ids.forEach(id => { const p = placeById(id); if (!p) return; const c = placeCoord(p); const [x, y] = proj(c.lon, c.lat); xs.push(x); ys.push(y); });
-  if (!xs.length) { mapView = { ...mapView, x: 0, y: 0, w: MAP.W, h: MAP.H }; return; }
-  const pad = 40; const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
-  let w = x1 - x0, hh = y1 - y0; const host = document.getElementById('mapHost'); const ratio = host && host.clientHeight ? host.clientWidth / host.clientHeight : 2; if (w / hh < ratio) w = hh * ratio; else hh = w / ratio;
-  mapView = { ...mapView, x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - hh / 2, w, h: hh };
-}
-let mapFitted = false;
-
 // ================= SAYFALAR =================
 function renderDash(m) {
   const d0 = todayISO();
@@ -376,7 +243,7 @@ function renderDash(m) {
   <div class="grid c2">
     <div class="card"><h2>${t('Gruplar – bugün')}</h2>
       <table><tr><th>${t('Grup')}</th><th>${t('Durum')}</th><th>${t('Kişi')}</th><th>${t('Sonraki değişim')}</th><th>${t('Kalan')}</th></tr>
-      ${S.groups.map(g => { const st = groupStatusAt(g, d0); const nx = groupNextChange(g); const cnt = inService.filter(p => p.group === g.id).length; return `<tr><td><b>${h(g.name)}</b></td><td>${st === 'work' ? '<span class="badge ok">' + t('İşte (fabrikada)') + '</span>' : '<span class="badge gray">' + t('Evde') + '</span>'}</td><td>${cnt}</td><td>${nx ? fmt(nx) + ' ' + dayName(nx) : '<span class="badge warn">' + t('tarih girilmedi') + '</span>'}</td><td>${nx ? diffDays(d0, nx) + ' ' + t('gün') : ''}</td></tr>`; }).join('')}
+      ${S.groups.map(g => { const st = groupStatusAt(g, d0); const nx = groupNextChange(g); const cnt = inService.filter(p => p.group === g.id).length; return `<tr><td><b>${h(g.name)}</b></td><td>${st === 'work' ? '<span class="badge ok">' + t('İşte') + '</span>' : '<span class="badge gray">' + t('Evde') + '</span>'}</td><td>${cnt}</td><td>${nx ? fmt(nx) + ' ' + dayName(nx) : '<span class="badge warn">' + t('tarih girilmedi') + '</span>'}</td><td>${nx ? diffDays(d0, nx) + ' ' + t('gün') : ''}</td></tr>`; }).join('')}
       </table>
       <p class="small muted">${t('Değişim tarihlerini')} <a href="#" data-go="shifts">${t('Vardiya & Değişim')}</a> ${t('sayfasından girin.')}</p>
     </div>
@@ -397,7 +264,7 @@ function renderDash(m) {
     </div>
   </div>`;
   if (S.settings.mapHidden) { $('#mshow', m).onclick = () => { S.settings.mapHidden = false; save(); render(); }; }
-  else { if (!mapFitted) { mountMap($('#mapCard', m)); fitMap(); mapFitted = true; } mountMap($('#mapCard', m)); }
+  else mountMap($('#mapCard', m));
   $$('[data-go]', m).forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.go); });
 }
 
@@ -611,7 +478,7 @@ function renderShifts(m) {
     <p class="small muted">${t('Her grup için şu an nerede olduğunu, bu durumun hangi tarihten beri sürdüğünü ve sonraki değişim tarihini girin; sonrası döngüye göre otomatik hesaplanır. Düzensiz tarihler için "özel tarihler" alanına virgülle ayrılmış tarihler yazabilirsiniz (ör. 2026-11-20, 2026-12-01); listeden sonrası yine döngüyle devam eder.')}</p>
     <table><tr><th>${t('Grup')}</th><th>${t('Şu an')}</th><th>${t('Bu durum… tarihinden beri')}</th><th>${t('Sonraki değişim')}</th><th>${t('Özel değişim tarihleri (isteğe bağlı)')}</th><th>${t('Kişi')}</th><th></th></tr>
     ${S.groups.map(g => `<tr data-g="${g.id}"><td><input class="gname" value="${h(g.name)}" style="width:70px"></td>
-      <td><select class="gst"><option value="work" ${g.status === 'work' ? 'selected' : ''}>${t('İşte (fabrikada)')}</option><option value="home" ${g.status === 'home' ? 'selected' : ''}>${t('Evde')}</option></select></td>
+      <td><select class="gst"><option value="work" ${g.status === 'work' ? 'selected' : ''}>${t('İşte')}</option><option value="home" ${g.status === 'home' ? 'selected' : ''}>${t('Evde')}</option></select></td>
       <td><input type="date" class="gsince" value="${h(g.statusSince)}"></td>
       <td><input type="date" class="gnext" value="${h(g.nextChange)}"></td>
       <td><input class="gcustom" value="${h((g.customDates || []).join(', '))}" placeholder="YYYY-MM-DD, …" style="width:260px"></td>
@@ -757,7 +624,7 @@ function reportHtml(type, o) {
     const tbl = rows => `<table><tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Lakap')}</th><th>${t('Unvan')}</th><th>${t('Grup')}</th><th>${t('Ev')}</th><th>${t('İşyeri')}</th><th>${t('Hat')}</th><th>${t('Durum')}</th></tr>${rows.map((p, i) => `<tr><td>${i + 1}</td><td>${h(p.regNo)}</td><td dir="auto">${h(p.name)}</td><td dir="auto">${h(p.nickname)}</td><td dir="auto">${h(p.title)}</td><td>${h(p.group)}</td><td dir="auto">${h(placeName(p.homeId))}</td><td dir="auto">${h(placeName(p.workId))}</td><td>${h(lineName(p.lineId))}</td><td>${personStatusLabel(p)}</td></tr>`).join('')}</table>`;
     if (type === 'groups') {
       body = head(t('Grup Listeleri'), `${fmt(date)}`);
-      S.groups.forEach(g => { const rows = list.filter(p => p.group === g.id && personInService(p)); body += `<div class="sec">${t('Grup')} ${h(g.name)} — ${groupStatusAt(g, date) === 'work' ? t('İŞTE (fabrikada)') : t('EVDE')} — ${rows.length} ${t('kişi')} · ${t('sonraki değişim')} ${fmt(groupNextChange(g, date))}</div>` + tbl(rows); });
+      S.groups.forEach(g => { const rows = list.filter(p => p.group === g.id && personInService(p)); body += `<div class="sec">${t('Grup')} ${h(g.name)} — ${groupStatusAt(g, date) === 'work' ? t('İŞTE') : t('EVDE')} — ${rows.length} ${t('kişi')} · ${t('sonraki değişim')} ${fmt(groupNextChange(g, date))}</div>` + tbl(rows); });
     } else if (type === 'line') {
       body = head(t('Hat Listesi'), o.lineId ? lineName(o.lineId) : t('Tüm hatlar'));
       S.lines.filter(L => !o.lineId || L.id === o.lineId).forEach(L => { body += `<div class="sec">${h(lname(L))} — ${t('işyeri')}: ${h(placeName(L.endA))}</div>`; L.stops.forEach((sid, i) => { const rows = list.filter(p => p.lineId === L.id && p.homeId === sid); if (!rows.length) return; body += `<div class="small"><b>${i + 1}. ${h(placeName(sid))}</b> (${rows.length})</div>` + tbl(rows); }); const un = list.filter(p => p.lineId === L.id && !L.stops.includes(p.homeId)); if (un.length) body += `<div class="small"><b>${t('Durağı tanımsız')}</b></div>` + tbl(un); });
@@ -905,7 +772,7 @@ function editLetterhead(id) {
   applyLang(S.settings.lang || 'tr');
   renderNav();
   $('#langSel').onchange = e => { S.settings.lang = e.target.value; save(); applyLang(S.settings.lang); renderNav(); render(); };
-  const start = () => { $('#lock').classList.add('hidden'); render(); silentUpdateCheck(); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
+  const start = () => { $('#lock').classList.add('hidden'); render(); silentUpdateCheck(); if (navigator.onLine !== false) autoRouteAll(false).then(r => { if (r.ok && (page === 'dash' || page === 'mainlines')) render(); }); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
   if (S.settings.pin) {
     $('#lock').classList.remove('hidden'); $('#lockTitle').textContent = t('İdareci şifresi'); $('#lockBtn').textContent = t('Giriş');
     const tryPin = () => { if ($('#lockPin').value === S.settings.pin) start(); else $('#lockErr').textContent = t('Hatalı şifre'); };
