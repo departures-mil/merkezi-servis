@@ -2,6 +2,10 @@
 'use strict';
 window.I18N = {
 en: {
+"Göster / gizle":"Show / hide","Haritayı gizle":"Hide map","Haritayı göster":"Show map",
+"Ayrıntılı görünüm":"Detailed view","Sadece hatlar":"Lines only","Hat sonu (haritada)":"Line end (on map)","— otomatik —":"— automatic —",
+"Eşitle":"Sync","Güncelle":"Update",
+"Sade görünüm":"Simple view","Adlar":"Names",
 "Sefer türü":"Trip type","Normal (1 otobüs)":"Normal (1 bus)","Özel durum: 2 otobüs":"Special case: 2 buses","Atamaları sıfırla":"Reset assignments","Durak bazlı atamaları temizle":"Clear per-stop assignments","İstersen her durağın otobüsünü aşağıdan tek tek değiştirebilirsin.":"You can also change each stop's bus individually below.",
 '1 otobüs':'1 bus','2 otobüs':'2 buses','2 otobüs (ekspres + toplayıcı)':'2 buses (express + collector)',
 '2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.':'2 drivers on duty, 2 resting (Team 1 / Team 2). Driver changeover happens in the middle of the passenger rotation (day 5).',
@@ -29,6 +33,10 @@ en: {
 'Şimdi güncelle':'Update now','Şoför':'Driver','Şoför Nöbet Çizelgesi':'Driver Duty Roster','Şoför döngüsü (gün)':'Driver cycle (days)','Şoför ekibi':'Driver team','Şoför ekle':'Add driver','Şoför listesi':'Driver list','Şoför nöbet çizelgesi':'Driver duty roster','Şoför silinsin mi?':'Delete this driver?','Şoförler':'Drivers','Şoförler – bugün':'Drivers – today','Şoförü düzenle':'Edit driver','Şu an':'Now','Şu an görevde olan ekip':'Team currently on duty','şablon':'template','— mevcut yerden durak ekle —':'— add stop from existing place —','— seçiniz —':'— select —'
 },
 ar: {
+"Göster / gizle":"إظهار / إخفاء","Haritayı gizle":"إخفاء الخريطة","Haritayı göster":"إظهار الخريطة",
+"Ayrıntılı görünüm":"عرض مفصّل","Sadece hatlar":"الخطوط فقط","Hat sonu (haritada)":"نهاية الخط (على الخريطة)","— otomatik —":"— تلقائي —",
+"Eşitle":"مزامنة","Güncelle":"تحديث",
+"Sade görünüm":"عرض مبسّط","Adlar":"الأسماء",
 "Sefer türü":"نوع الرحلة","Normal (1 otobüs)":"عادي (حافلة واحدة)","Özel durum: 2 otobüs":"حالة خاصة: حافلتان","Atamaları sıfırla":"إعادة ضبط التوزيع","Durak bazlı atamaları temizle":"مسح توزيع المحطات","İstersen her durağın otobüsünü aşağıdan tek tek değiştirebilirsin.":"يمكنك أيضاً تغيير حافلة كل محطة على حدة أدناه.",
 '1 otobüs':'حافلة واحدة','2 otobüs':'حافلتان','2 otobüs (ekspres + toplayıcı)':'حافلتان (سريعة + تجميع)',
 '2 şoför çalışır, 2 şoför istirahattedir (Ekip 1 / Ekip 2). Şoför değişimi yolcu değişiminin ortasında (5. gün) yapılır.':'سائقان في الخدمة وسائقان في الراحة (الفريق 1 / الفريق 2). يتم تبديل السائقين في منتصف دورة الركاب (اليوم الخامس).',
