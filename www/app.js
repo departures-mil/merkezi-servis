@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'B'];
@@ -158,7 +158,7 @@ function renderTopbar() {
   const tb = $('#topbar'); if (!tb) return;
   tb.innerHTML = `<span id="saveInfoTop" class="muted">${$('#saveInfo') ? $('#saveInfo').textContent : ''}</span>
     <span class="menu" id="syncMenu"><button class="btn sm" id="syncBtn">⇄ ${t('Eşitle')}</button><div class="dd"><a id="tbExp">⬇ ${t('Yedek al (JSON)')}</a><a id="tbImp">⬆ ${t('Yedekten geri yükle')}</a><a id="tbXls">📗 ${t("Excel'e ver")}</a></div></span>
-    <span class="menu" id="updMenu"><button class="btn sm" id="updBtn">⟳ ${t('Güncelle')}${updateAvail ? '<span class="dot-new"></span>' : ''}</button><div class="dd upd" id="updDd"></div></span>`;
+    <span class="menu" id="updMenu"><button class="btn sm ${updReady ? 'primary' : ''}" id="updBtn">⟳ ${updReady ? 'v' + h(updReady) + ' ' + t('hazır') : t('Güncelle')}${updateAvail && !updReady ? '<span class="dot-new"></span>' : ''}</button><div class="dd upd" id="updDd"></div></span>`;
   const mn = $('#syncMenu', tb);
   $('#syncBtn', tb).onclick = e => { e.stopPropagation(); mn.classList.toggle('open'); };
   document.addEventListener('click', () => mn.classList.remove('open'), { once: true });
@@ -171,25 +171,47 @@ function renderTopbar() {
     e.stopPropagation(); mn.classList.remove('open');
     if (um.classList.contains('open')) { um.classList.remove('open'); return; }
     um.classList.add('open'); document.addEventListener('click', () => um.classList.remove('open'), { once: true });
-    const url = S.settings.updateUrl || DEFAULT_UPDATE_URL;
+    const info = () => `<div class="small muted" style="margin-top:6px">v${h(currentVer)} · ${t('Otomatik güncelleme')}: <b>${S.settings.autoUpdate === false ? t('kapalı') : t('açık')}</b>${lastUpdCheck ? ' · ' + t('son kontrol') + ' ' + new Date(lastUpdCheck).toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG, { hour: '2-digit', minute: '2-digit' }) : ''}</div>`;
     if (!isElectron) { ud.innerHTML = `<div class="pad">${t('Sadece masaüstü uygulamasında.')}</div>`; return; }
-    ud.innerHTML = `<div class="pad">${t('Kontrol ediliyor…')}</div>`;
-    try {
-      const r = await window.electronAPI.checkUpdate(url); updateAvail = r.available ? r.remote : null;
-      if (!r.available) { ud.innerHTML = `<div class="pad">✓ ${t('Güncel.')} <span class="muted">v${h(r.current)}</span></div>`; const d = $('#updBtn .dot-new', tb); if (d) d.remove(); return; }
-      ud.innerHTML = `<div class="pad"><b>${t('Yeni sürüm bulundu')}: v${h(r.remote)}</b> <span class="muted">(${t('mevcut')} v${h(r.current)})</span><div class="small muted" style="margin:6px 0">${h(r.notes)}</div><button class="btn primary sm" id="updGoTop">${t('Şimdi güncelle')}</button></div>`;
-      $('#updGoTop', ud).onclick = async () => {
-        ud.innerHTML = `<div class="pad">${t('İndiriliyor…')}</div>`;
-        try { const a = await window.electronAPI.applyUpdate(url); ud.innerHTML = `<div class="pad">✓ ${t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version)}</div>`; save(true); setTimeout(() => window.electronAPI.relaunch(), 900); }
-        catch (err) { ud.innerHTML = `<div class="pad err">${t('Güncelleme hatası')}: ${h(err.message || err)}</div>`; }
-      };
-    } catch (err) { ud.innerHTML = `<div class="pad err">${t('Kontrol edilemedi')}: ${h(err.message || err)}</div>`; }
+    if (updReady) { ud.innerHTML = `<div class="pad"><b>✓ v${h(updReady)} ${t('hazır')}</b><div style="margin-top:6px"><button class="btn primary sm" id="updRs">${t('Şimdi yeniden başlat')}</button></div>${info()}</div>`; $('#updRs', ud).onclick = () => scheduleRestart(true); return; }
+    ud.innerHTML = `<div class="pad">${t('Kontrol ediliyor…')}${info()}</div>`;
+    await autoUpdate(true);
+    if (updReady) { ud.innerHTML = `<div class="pad"><b>✓ v${h(updReady)} ${t('indirildi')}</b><div class="small muted">${t('Uygulama birazdan kendini yenileyecek')}</div><div style="margin-top:6px"><button class="btn primary sm" id="updRs">${t('Şimdi yeniden başlat')}</button></div>${info()}</div>`; $('#updRs', ud).onclick = () => scheduleRestart(true); }
+    else if (lastUpdErr) ud.innerHTML = `<div class="pad err">${t('Kontrol edilemedi')}: ${h(lastUpdErr)}</div><div class="pad" style="padding-top:0">${info()}</div>`;
+    else ud.innerHTML = `<div class="pad">✓ ${t('Güncel.')}${info()}</div>`;
   };
 }
-async function silentUpdateCheck() {
-  if (!isElectron) return;
-  try { const r = await window.electronAPI.checkUpdate(S.settings.updateUrl || DEFAULT_UPDATE_URL); updateAvail = r.available ? r.remote : null; renderTopbar(); if (r.available) toast(t('Yeni sürüm bulundu') + ': ' + r.remote); } catch (e) { }
+const APP_START = Date.now(); let lastUserAct = Date.now(), updReady = null, lastUpdCheck = 0, lastUpdErr = '', currentVer = APP_VERSION, updBusy = false;
+['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastUserAct = Date.now(); }, { passive: true, capture: true }));
+// Otomatik güncelleme: kontrol et → indir → kullanıcı boştayken yeniden başlat
+async function autoUpdate(manual) {
+  if (!isElectron || updBusy || updReady) return;
+  if (!manual && S.settings.autoUpdate === false) return;
+  updBusy = true;
+  const url = S.settings.updateUrl || DEFAULT_UPDATE_URL;
+  try {
+    const r = await window.electronAPI.checkUpdate(url); lastUpdCheck = Date.now(); lastUpdErr = ''; currentVer = r.current;
+    updateAvail = r.available ? r.remote : null; renderTopbar();
+    if (r.available) {
+      const a = await window.electronAPI.applyUpdate(url); updReady = a.version; save(true); renderTopbar();
+      toast(t('Sürüm {0} indirildi; uygulama birazdan kendini yenileyecek', a.version));
+      scheduleRestart();
+    }
+  } catch (e) { lastUpdCheck = Date.now(); lastUpdErr = e.message || String(e); renderTopbar(); }
+  finally { updBusy = false; }
 }
+function scheduleRestart(now) {
+  const go2 = () => { save(true); setTimeout(() => window.electronAPI.relaunch(), 400); };
+  if (now) return go2();
+  const tryIt = () => {
+    const fresh = Date.now() - APP_START < 25000;           // açılışta bulunduysa hemen
+    const idle = Date.now() - lastUserAct > 45000;          // ya da kullanıcı 45 sn boştaysa
+    const modalOpen = !!$('#modalRoot').innerHTML.trim();
+    if ((fresh || idle) && !modalOpen) go2(); else setTimeout(tryIt, 10000);
+  };
+  setTimeout(tryIt, 3000);
+}
+function silentUpdateCheck() { return autoUpdate(false); }
 async function importBackup() {
   const f = await pickFile('.json'); if (!f) return;
   try { const st = JSON.parse(new TextDecoder().decode(f.data)); if (!st.persons) throw 0; confirmDlg(t('Mevcut veriler yedekteki verilerle değiştirilecek. Devam?'), () => { S = st; save(true); applyLang(S.settings.lang); renderNav(); render(); toast(t('Geri yüklendi')); }); } catch (e) { toast(t('Geçersiz yedek dosyası'), true); }
@@ -724,6 +746,7 @@ function renderSettings(m) {
     <div class="card"><h2>${t('Güncelleme')}</h2>
       <div class="kv"><b>${t('Uygulama sürümü')}</b><span id="curVer">${APP_VERSION}</span><b>${t('Güncelleme adresi')}</b><span></span></div>
       <input id="s_upd" value="${h(s.updateUrl)}" style="width:100%;margin:6px 0" dir="ltr">
+      <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="s_auto" ${s.autoUpdate === false ? '' : 'checked'}> ${t('Otomatik güncelleme (açılışta ve 20 dakikada bir)')}</label>
       <div class="row"><button class="btn primary" id="updCheck">${t('Güncellemeyi kontrol et')}</button><button class="btn" id="updReset">${t('Fabrika sürümüne dön')}</button></div>
       <div id="updMsg" class="small" style="margin-top:8px"></div>
       ${isElectron ? '' : `<p class="small muted">${t('Tarayıcı modunda güncelleme yapılamaz; masaüstü uygulamasını kullanın.')}</p>`}</div>
@@ -752,6 +775,7 @@ function renderSettings(m) {
       $('#updGo').onclick = async () => { msg.textContent = t('İndiriliyor…'); try { const a = await window.electronAPI.applyUpdate($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
     } catch (e) { msg.textContent = t('Kontrol edilemedi') + ': ' + (e.message || e); }
   };
+  $('#s_auto').onchange = e => { s.autoUpdate = e.target.checked; save(); renderTopbar(); };
   $('#updReset').onclick = async () => { if (!isElectron) return; await window.electronAPI.resetUpdate(); toast(t('Fabrika sürümüne dönüldü, yeniden başlatılıyor')); setTimeout(() => window.electronAPI.relaunch(), 600); };
 }
 function editLetterhead(id) {
@@ -772,7 +796,7 @@ function editLetterhead(id) {
   applyLang(S.settings.lang || 'tr');
   renderNav();
   $('#langSel').onchange = e => { S.settings.lang = e.target.value; save(); applyLang(S.settings.lang); renderNav(); render(); };
-  const start = () => { $('#lock').classList.add('hidden'); render(); silentUpdateCheck(); if (navigator.onLine !== false) autoRouteAll(false).then(r => { if (r.ok && (page === 'dash' || page === 'mainlines')) render(); }); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
+  const start = () => { $('#lock').classList.add('hidden'); render(); if (isElectron) window.electronAPI.appInfo().then(i => { currentVer = i.activeVersion; }).catch(() => { }); setTimeout(() => autoUpdate(false), 1500); setInterval(() => autoUpdate(false), 20 * 60 * 1000); window.addEventListener('online', () => autoUpdate(false)); if (navigator.onLine !== false) autoRouteAll(false).then(r => { if (r.ok && (page === 'dash' || page === 'mainlines')) render(); }); if (S.firstRun) { delete S.firstRun; save(true); toast(t("Excel'den gelen başlangıç verisi yüklendi")); } };
   if (S.settings.pin) {
     $('#lock').classList.remove('hidden'); $('#lockTitle').textContent = t('İdareci şifresi'); $('#lockBtn').textContent = t('Giriş');
     const tryPin = () => { if ($('#lockPin').value === S.settings.pin) start(); else $('#lockErr').textContent = t('Hatalı şifre'); };
