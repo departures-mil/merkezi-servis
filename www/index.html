@@ -11,7 +11,7 @@
   <div class="lock-box">
     <img src="assets/logo.png" alt="">
     <h2>Merkezi Servis</h2>
-    <p>İdareci şifresi</p>
+    <p id="lockTitle">İdareci şifresi</p>
     <input id="lockPin" type="password" autocomplete="off">
     <button class="btn primary" id="lockBtn">Giriş</button>
     <div id="lockErr" class="err"></div>
@@ -24,18 +24,9 @@
       <img src="assets/logo.png" alt="">
       <div><b>Merkezi Servis</b><small id="brandSub">Servis Yönetimi</small></div>
     </div>
-    <nav id="nav">
-      <a data-page="dash" class="active">🏠 Genel Durum</a>
-      <a data-page="persons">👥 Kişiler</a>
-      <a data-page="lines">🛣️ Hatlar &amp; Duraklar</a>
-      <a data-page="places">📍 Yerleşim Yerleri</a>
-      <a data-page="shifts">🔄 Vardiya &amp; Değişim</a>
-      <a data-page="drivers">🚌 Şoförler</a>
-      <a data-page="plan">🗓️ Sefer Planı</a>
-      <a data-page="reports">🖨️ Çıktılar</a>
-      <a data-page="settings">⚙️ Ayarlar</a>
-    </nav>
+    <nav id="nav"></nav>
     <div class="side-foot">
+      <select id="langSel" class="lang"></select>
       <div id="verInfo">v—</div>
       <div id="saveInfo" class="muted">Kaydedildi</div>
     </div>
@@ -48,6 +39,8 @@
 <div id="printArea" class="print-area"></div>
 
 <script src="xlsx.full.min.js"></script>
+<script src="geo.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

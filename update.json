@@ -1,9 +1,11 @@
 {
-  "version": "1.0.0",
-  "notes": "İlk sürüm.",
+  "version": "1.1.0",
+  "notes": "Harita, 3 dil (TR/AR/EN), A/B grupları, hat renkleri ve çok dilli hat adları.",
   "files": [
     "www/index.html",
     "www/app.js",
-    "www/style.css"
+    "www/style.css",
+    "www/geo.js",
+    "www/i18n.js"
   ]
 }
