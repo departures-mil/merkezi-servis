@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
@@ -207,23 +207,34 @@ let updateAvail = null;
 const fmtMB = b => (Math.max(0, b) / 1048576).toFixed(2) + ' MB';
 const fmtSpeed = bps => bps >= 1048576 ? (bps / 1048576).toFixed(2) + ' MB/s' : (bps / 1024).toFixed(0) + ' KB/s';
 let updProg = null; // { done, total, speed, t0, lastT, lastD }
+const fmtDur = sec => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec / 60), s = sec % 60; return m ? `${m} ${t('dk')} ${s} ${t('sn')}` : `${s} ${t('sn')}`; };
 function progText(p) {
   if (!p) return '';
   const tot = p.total && p.total >= p.done ? p.total : 0;
   const pct = tot ? Math.min(100, Math.round(p.done / tot * 100)) : null;
-  const parts = [];
-  if (pct != null) parts.push('%' + pct);
-  parts.push(tot ? `${fmtMB(p.done)} / ${fmtMB(tot)}` : fmtMB(p.done));
-  if (tot) parts.push(t('kalan') + ' ' + fmtMB(tot - p.done));
-  if (p.speed) parts.push(fmtSpeed(p.speed));
-  return { pct, line: parts.join(' · ') };
+  const eta = tot && p.speed > 0 ? (tot - p.done) / p.speed : null;
+  return { pct, tot, eta };
+}
+function progHtml(p) {
+  const pt = progText(p); if (!pt) return '';
+  const row = (k, v) => `<div class="pg-k">${h(k)}</div><div class="pg-v">${h(v)}</div>`;
+  return `<div class="pg">
+    <div class="pg-top"><span class="pg-pct">${pt.pct != null ? '%' + pt.pct : '…'}</span><span class="pg-sz">${h(pt.tot ? fmtMB(p.done) + ' / ' + fmtMB(pt.tot) : fmtMB(p.done))}</span></div>
+    <div class="pbar"><i style="width:${pt.pct != null ? pt.pct : 100}%"></i></div>
+    <div class="pg-grid">
+      ${row(t('İndirilen'), fmtMB(p.done))}
+      ${pt.tot ? row(t('Toplam'), fmtMB(pt.tot)) : ''}
+      ${pt.tot ? row(t('Kalan'), fmtMB(pt.tot - p.done)) : ''}
+      ${row(t('Hız'), p.speed ? fmtSpeed(p.speed) : '…')}
+      ${pt.eta != null ? row(t('Tahmini süre'), fmtDur(pt.eta)) : ''}
+    </div></div>`;
 }
 function paintProgress() {
   const tb = $('#topbar'); if (!tb || !updProg) return;
   const pt = progText(updProg);
   const lbl = $('#updLbl', tb); if (lbl) lbl.textContent = pt.pct != null ? t('İndiriliyor') + ' %' + pt.pct : t('İndiriliyor…');
   const bar = $('#updBar', tb); if (bar) bar.style.width = (pt.pct != null ? pt.pct : 100) + '%';
-  const box = $('#updProgBox'); if (box) box.innerHTML = `<div class="pbar"><i style="width:${pt.pct != null ? pt.pct : 100}%"></i></div><div class="small">${h(pt.line)}</div>`;
+  const box = $('#updProgBox'); if (box) box.innerHTML = progHtml(updProg);
 }
 function onProgress(d) {
   const now = Date.now();
@@ -271,7 +282,7 @@ function renderTopbar() {
   $('#tbExp', tb).onclick = () => { closeTbMenus(); saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1))); };
   $('#tbImp', tb).onclick = () => { closeTbMenus(); importBackup(); };
   $('#tbXls', tb).onclick = () => { closeTbMenus(); exportPersonsExcel(); };
-  const info = () => `<div class="small muted" style="margin-top:8px">v${h(currentVer)} · ${t('Otomatik güncelleme')}: <b>${S.settings.autoUpdate === false ? t('kapalı') : t('açık')}</b>${lastUpdCheck ? ' · ' + t('son kontrol') + ' ' + new Date(lastUpdCheck).toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG, { hour: '2-digit', minute: '2-digit' }) : ''}</div>`;
+  const info = () => `<div class="small muted upd-info" style="margin-top:10px"><span>v${h(currentVer)}</span><span>· ${t('Otomatik güncelleme')}: <b>${S.settings.autoUpdate === false ? t('kapalı') : t('açık')}</b></span>${lastUpdCheck ? '<span>· ' + t('son kontrol') + ' ' + new Date(lastUpdCheck).toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG, { hour: '2-digit', minute: '2-digit' }) + '</span>' : ''}</div>`;
   const readyHtml = () => `<div class="pad"><b>✓ v${h(updReady)} ${t('indirildi')}</b><div class="small muted">${t('Uygulama birazdan kendini yenileyecek')}</div><div style="margin-top:8px"><button class="btn primary sm" id="updRs">${t('Şimdi yeniden başlat')}</button></div>${info()}</div>`;
   const fillDd = () => {
     if (!isElectron) { ud.innerHTML = `<div class="pad">${t('Sadece masaüstü uygulamasında.')}</div>`; return; }
