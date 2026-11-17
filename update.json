@@ -1,6 +1,6 @@
 {
-  "version": "1.8.0",
-  "notes": "Sürüm numaralandırması 1.0.0'dan yeniden başladı; bundan sonra 1.0.1, 1.0.2… şeklinde artar.",
+  "version": "1.8.1",
+  "notes": "Sağ üstte belirgin Eşitle ve Güncelle düğmeleri; güncelleme indirilirken yüzde, MB, kalan ve hız gösterimi",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -11,5 +11,15 @@
     "www/vendor/leaflet.js",
     "www/vendor/leaflet.css"
   ],
-  "display": "1.0.0"
+  "display": "1.0.1",
+  "sizes": {
+    "www/index.html": 1520,
+    "www/app.js": 103028,
+    "www/style.css": 16747,
+    "www/geo.js": 4815,
+    "www/i18n.js": 44089,
+    "www/map.js": 25845,
+    "www/vendor/leaflet.js": 147552,
+    "www/vendor/leaflet.css": 14806
+  }
 }
