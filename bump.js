@@ -12,6 +12,7 @@ const rep = (f, re, s) => fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace
 rep('www/app.js', /const APP_VERSION = '[^']+'/, `const APP_VERSION = '${display}'`);
 fs.writeFileSync('www/version.json', JSON.stringify({ version: internal, display }));
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); pkg.version = display; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+u.sizes = {}; for (const f of u.files || []) { try { u.sizes[f] = fs.statSync(f).size; } catch (e) { } }
 u.version = internal; u.display = display; if (notes) u.notes = notes;
 fs.writeFileSync('update.json', JSON.stringify(u, null, 2) + '\n');
 console.log(`Sürüm ${display} (iç: ${internal})`);

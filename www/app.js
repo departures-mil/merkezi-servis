@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
@@ -203,32 +203,92 @@ function renderNav() {
   renderTopbar();
 }
 let updateAvail = null;
+// ---- Sağ üst: Eşitle & Güncelle ----
+const fmtMB = b => (Math.max(0, b) / 1048576).toFixed(2) + ' MB';
+const fmtSpeed = bps => bps >= 1048576 ? (bps / 1048576).toFixed(2) + ' MB/s' : (bps / 1024).toFixed(0) + ' KB/s';
+let updProg = null; // { done, total, speed, t0, lastT, lastD }
+function progText(p) {
+  if (!p) return '';
+  const tot = p.total && p.total >= p.done ? p.total : 0;
+  const pct = tot ? Math.min(100, Math.round(p.done / tot * 100)) : null;
+  const parts = [];
+  if (pct != null) parts.push('%' + pct);
+  parts.push(tot ? `${fmtMB(p.done)} / ${fmtMB(tot)}` : fmtMB(p.done));
+  if (tot) parts.push(t('kalan') + ' ' + fmtMB(tot - p.done));
+  if (p.speed) parts.push(fmtSpeed(p.speed));
+  return { pct, line: parts.join(' · ') };
+}
+function paintProgress() {
+  const tb = $('#topbar'); if (!tb || !updProg) return;
+  const pt = progText(updProg);
+  const lbl = $('#updLbl', tb); if (lbl) lbl.textContent = pt.pct != null ? t('İndiriliyor') + ' %' + pt.pct : t('İndiriliyor…');
+  const bar = $('#updBar', tb); if (bar) bar.style.width = (pt.pct != null ? pt.pct : 100) + '%';
+  const box = $('#updProgBox'); if (box) box.innerHTML = `<div class="pbar"><i style="width:${pt.pct != null ? pt.pct : 100}%"></i></div><div class="small">${h(pt.line)}</div>`;
+}
+function onProgress(d) {
+  const now = Date.now();
+  if (!updProg) updProg = { done: 0, total: 0, speed: 0, lastT: now, lastD: 0 };
+  const dt = (now - updProg.lastT) / 1000;
+  if (dt >= 0.4) { const inst = (d.done - updProg.lastD) / dt; updProg.speed = updProg.speed ? updProg.speed * 0.6 + inst * 0.4 : inst; updProg.lastT = now; updProg.lastD = d.done; }
+  updProg.done = d.done; updProg.total = d.total;
+  paintProgress();
+}
+if (isElectron && window.electronAPI.onUpdateProgress) window.electronAPI.onUpdateProgress(onProgress);
+// Güncellemeyi uygula (ilerlemeyi göstererek)
+async function applyUpdateWithProgress(url) {
+  updProg = { done: 0, total: 0, speed: 0, lastT: Date.now(), lastD: 0 };
+  renderTopbar();
+  try { return await window.electronAPI.applyUpdate(url); }
+  finally { updProg = null; }
+}
+let tbDocBound = false;
+function closeTbMenus() { $$('#topbar .menu.open').forEach(m => m.classList.remove('open')); }
 function renderTopbar() {
   const tb = $('#topbar'); if (!tb) return;
-  tb.innerHTML = `<span id="saveInfoTop" class="muted">${$('#saveInfo') ? $('#saveInfo').textContent : ''}</span>
-    <span class="menu" id="syncMenu"><button class="btn sm" id="syncBtn">⇄ ${t('Eşitle')}</button><div class="dd"><a id="tbExp">⬇ ${t('Yedek al (JSON)')}</a><a id="tbImp">⬆ ${t('Yedekten geri yükle')}</a><a id="tbXls">📗 ${t("Excel'e ver")}</a></div></span>
-    <span class="menu" id="updMenu"><button class="btn sm ${updReady ? 'primary' : ''}" id="updBtn">⟳ ${updReady ? 'v' + h(updReady) + ' ' + t('hazır') : t('Güncelle')}${updateAvail && !updReady ? '<span class="dot-new"></span>' : ''}</button><div class="dd upd" id="updDd"></div></span>`;
-  const mn = $('#syncMenu', tb);
-  $('#syncBtn', tb).onclick = e => { e.stopPropagation(); mn.classList.toggle('open'); };
-  document.addEventListener('click', () => mn.classList.remove('open'), { once: true });
-  $('#tbExp', tb).onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
-  $('#tbImp', tb).onclick = () => importBackup();
-  $('#tbXls', tb).onclick = () => exportPersonsExcel();
-  const um = $('#updMenu', tb), ud = $('#updDd', tb);
-  ud.onclick = e => e.stopPropagation();
-  $('#updBtn', tb).onclick = async e => {
-    e.stopPropagation(); mn.classList.remove('open');
-    if (um.classList.contains('open')) { um.classList.remove('open'); return; }
-    um.classList.add('open'); document.addEventListener('click', () => um.classList.remove('open'), { once: true });
-    const info = () => `<div class="small muted" style="margin-top:6px">v${h(currentVer)} · ${t('Otomatik güncelleme')}: <b>${S.settings.autoUpdate === false ? t('kapalı') : t('açık')}</b>${lastUpdCheck ? ' · ' + t('son kontrol') + ' ' + new Date(lastUpdCheck).toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG, { hour: '2-digit', minute: '2-digit' }) : ''}</div>`;
+  if (!tbDocBound) { tbDocBound = true; document.addEventListener('click', closeTbMenus); document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTbMenus(); }); }
+  const wasOpen = $('#updMenu.open', tb) ? 'upd' : ($('#syncMenu.open', tb) ? 'sync' : '');
+  const saved = $('#saveInfo') ? $('#saveInfo').textContent : '';
+  let updCls = '', updIc = '⟳', updLbl = t('Güncelle');
+  if (updProg) { updCls = 'busy'; updIc = '⬇'; updLbl = t('İndiriliyor…'); }
+  else if (updReady) { updCls = 'ready'; updIc = '✓'; updLbl = 'v' + updReady + ' ' + t('hazır'); }
+  else if (updateAvail) { updCls = 'avail'; updIc = '⬆'; updLbl = t('Yeni sürüm') + ' v' + updateAvail; }
+  else if (lastUpdErr) { updCls = 'err'; }
+  tb.innerHTML = `<div class="tb-left"></div>
+    <div class="tb-right">
+      <span id="saveInfoTop" class="tb-save" title="${h(saved)}">${saved ? '✓ ' + h(saved) : ''}</span>
+      <div class="menu" id="syncMenu">
+        <button class="tbbtn" id="syncBtn" title="${h(t('Eşitle'))}"><span class="ic">⇄</span><span>${t('Eşitle')}</span><span class="caret">▾</span></button>
+        <div class="dd"><div class="dd-h">${t('Veri eşitleme')}</div><a id="tbExp">⬇ ${t('Yedek al (JSON)')}</a><a id="tbImp">⬆ ${t('Yedekten geri yükle')}</a><a id="tbXls">📗 ${t("Excel'e ver")}</a></div>
+      </div>
+      <div class="menu" id="updMenu">
+        <button class="tbbtn upd ${updCls}" id="updBtn" title="${h(t('Güncelle'))}"><span class="ic">${updIc}</span><span id="updLbl">${h(updLbl)}</span>${updateAvail && !updReady && !updProg ? '<span class="dot-new"></span>' : ''}${updProg ? '<span class="tb-bar"><i id="updBar"></i></span>' : ''}</button>
+        <div class="dd upd" id="updDd"></div>
+      </div>
+    </div>`;
+  const sm = $('#syncMenu', tb), um = $('#updMenu', tb), ud = $('#updDd', tb);
+  $$('.dd', tb).forEach(d => d.onclick = e => e.stopPropagation());
+  $('#syncBtn', tb).onclick = e => { e.stopPropagation(); um.classList.remove('open'); sm.classList.toggle('open'); };
+  $('#tbExp', tb).onclick = () => { closeTbMenus(); saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1))); };
+  $('#tbImp', tb).onclick = () => { closeTbMenus(); importBackup(); };
+  $('#tbXls', tb).onclick = () => { closeTbMenus(); exportPersonsExcel(); };
+  const info = () => `<div class="small muted" style="margin-top:8px">v${h(currentVer)} · ${t('Otomatik güncelleme')}: <b>${S.settings.autoUpdate === false ? t('kapalı') : t('açık')}</b>${lastUpdCheck ? ' · ' + t('son kontrol') + ' ' + new Date(lastUpdCheck).toLocaleTimeString(LANG === 'ar' ? 'ar-SY' : LANG, { hour: '2-digit', minute: '2-digit' }) : ''}</div>`;
+  const readyHtml = () => `<div class="pad"><b>✓ v${h(updReady)} ${t('indirildi')}</b><div class="small muted">${t('Uygulama birazdan kendini yenileyecek')}</div><div style="margin-top:8px"><button class="btn primary sm" id="updRs">${t('Şimdi yeniden başlat')}</button></div>${info()}</div>`;
+  const fillDd = () => {
     if (!isElectron) { ud.innerHTML = `<div class="pad">${t('Sadece masaüstü uygulamasında.')}</div>`; return; }
-    if (updReady) { ud.innerHTML = `<div class="pad"><b>✓ v${h(updReady)} ${t('hazır')}</b><div style="margin-top:6px"><button class="btn primary sm" id="updRs">${t('Şimdi yeniden başlat')}</button></div>${info()}</div>`; $('#updRs', ud).onclick = () => scheduleRestart(true); return; }
-    ud.innerHTML = `<div class="pad">${t('Kontrol ediliyor…')}${info()}</div>`;
-    await autoUpdate(true);
-    if (updReady) { ud.innerHTML = `<div class="pad"><b>✓ v${h(updReady)} ${t('indirildi')}</b><div class="small muted">${t('Uygulama birazdan kendini yenileyecek')}</div><div style="margin-top:6px"><button class="btn primary sm" id="updRs">${t('Şimdi yeniden başlat')}</button></div>${info()}</div>`; $('#updRs', ud).onclick = () => scheduleRestart(true); }
-    else if (lastUpdErr) ud.innerHTML = `<div class="pad err">${t('Kontrol edilemedi')}: ${h(lastUpdErr)}</div><div class="pad" style="padding-top:0">${info()}</div>`;
-    else ud.innerHTML = `<div class="pad">✓ ${t('Güncel.')}${info()}</div>`;
+    if (updProg) { ud.innerHTML = `<div class="pad"><b>⬇ ${t('Güncelleme indiriliyor')}${updateAvail ? ' – v' + h(updateAvail) : ''}</b><div id="updProgBox" style="margin-top:8px"></div>${window.electronAPI.onUpdateProgress ? '' : `<div class="small muted">${t('Ayrıntılı ilerleme için uygulamayı yeni kurulum dosyasıyla bir kez güncelleyin.')}</div>`}${info()}</div>`; paintProgress(); return; }
+    if (updReady) { ud.innerHTML = readyHtml(); $('#updRs', ud).onclick = () => scheduleRestart(true); return; }
+    ud.innerHTML = `<div class="pad">${updBusy ? t('Kontrol ediliyor…') : (lastUpdErr ? `<span class="err">${t('Kontrol edilemedi')}: ${h(lastUpdErr)}</span>` : '✓ ' + t('Güncel.'))}${info()}<div style="margin-top:8px"><button class="btn sm" id="updAgain">⟳ ${t('Güncellemeyi kontrol et')}</button></div></div>`;
+    const ag = $('#updAgain', ud); if (ag) ag.onclick = async () => { ud.innerHTML = `<div class="pad">${t('Kontrol ediliyor…')}${info()}</div>`; await autoUpdate(true); };
   };
+  $('#updBtn', tb).onclick = async e => {
+    e.stopPropagation(); sm.classList.remove('open');
+    if (um.classList.contains('open')) { um.classList.remove('open'); return; }
+    um.classList.add('open'); fillDd();
+    if (!updProg && !updReady && !updBusy && isElectron) { ud.innerHTML = `<div class="pad">${t('Kontrol ediliyor…')}${info()}</div>`; await autoUpdate(true); }
+  };
+  if (wasOpen === 'upd') { um.classList.add('open'); fillDd(); }
+  else if (wasOpen === 'sync') sm.classList.add('open');
+  if (updProg) paintProgress();
 }
 const APP_START = Date.now(); let lastUserAct = Date.now(), updReady = null, lastUpdCheck = 0, lastUpdErr = '', currentVer = APP_VERSION, updBusy = false;
 ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastUserAct = Date.now(); }, { passive: true, capture: true }));
@@ -256,12 +316,12 @@ async function autoUpdate(manual) {
     let disp = r.remote; try { const mf = await (await fetch(url + 'update.json', { cache: 'no-store' })).json(); disp = mf.display || mf.version; } catch (e) { }
     updateAvail = r.available ? disp : null; renderTopbar();
     if (r.available) {
-      await window.electronAPI.applyUpdate(url); updReady = disp; save(true); renderTopbar();
+      await applyUpdateWithProgress(url); updReady = disp; save(true); renderTopbar();
       toast(t('Sürüm {0} indirildi; uygulama birazdan kendini yenileyecek', disp));
       scheduleRestart();
     }
-  } catch (e) { lastUpdCheck = Date.now(); lastUpdErr = e.message || String(e); renderTopbar(); }
-  finally { updBusy = false; }
+  } catch (e) { lastUpdCheck = Date.now(); lastUpdErr = e.message || String(e); }
+  finally { updBusy = false; renderTopbar(); }
 }
 function scheduleRestart(now) {
   const go2 = () => { save(true); setTimeout(() => window.electronAPI.relaunch(), 400); };
@@ -866,7 +926,7 @@ function renderSettings(m) {
       const base = await resolveUpdateBase($('#s_upd').value.trim() || DEFAULT_UPDATE_URL); const r = await window.electronAPI.checkUpdate(base);
       updateAvail = r.available ? r.remote : null; renderTopbar(); if (!r.available) return msg.innerHTML = `${t('Güncel.')} (${r.current} / ${r.remote})`;
       msg.innerHTML = `${t('Yeni sürüm bulundu')}: <b>${h(r.remote)}</b> (${t('mevcut')} ${h(r.current)})<br>${h(r.notes)}<br><button class="btn primary sm" id="updGo">${t('Şimdi güncelle')}</button>`;
-      $('#updGo').onclick = async () => { msg.textContent = t('İndiriliyor…'); try { const a = await window.electronAPI.applyUpdate(base); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
+      $('#updGo').onclick = async () => { msg.innerHTML = `${t('İndiriliyor…')}<div id="updProgBox" style="margin-top:6px"></div>`; try { const a = await applyUpdateWithProgress(base); msg.textContent = t('Sürüm {0} yüklendi, uygulama yeniden başlatılıyor…', a.version); save(true); setTimeout(() => window.electronAPI.relaunch(), 800); } catch (e) { msg.textContent = t('Güncelleme hatası') + ': ' + e.message; } };
     } catch (e) { msg.textContent = t('Kontrol edilemedi') + ': ' + (e.message || e); }
   };
   $('#s_auto').onchange = e => { s.autoUpdate = e.target.checked; save(); renderTopbar(); };

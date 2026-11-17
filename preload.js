@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   appInfo: () => ipcRenderer.invoke('app:info'),
   checkUpdate: (url) => ipcRenderer.invoke('update:check', url),
   applyUpdate: (url) => ipcRenderer.invoke('update:apply', url),
+  onUpdateProgress: (cb) => { const fn = (e, d) => cb(d); ipcRenderer.on('update:progress', fn); return () => ipcRenderer.removeListener('update:progress', fn); },
   resetUpdate: () => ipcRenderer.invoke('update:reset'),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
   print: () => ipcRenderer.invoke('app:print')

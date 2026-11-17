@@ -30,21 +30,28 @@ const MIRRORS = base => {
   const m = base.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\//);
   return m ? [base, `https://cdn.jsdelivr.net/gh/${m[1]}/${m[2]}@${m[3]}/`] : [base];
 };
-async function fetchOne(url) {
-  const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 30000);
+async function fetchOne(url, onChunk) {
+  const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 60000);
   try {
     const r = await net.fetch(url, { signal: ctrl.signal, cache: 'no-store', headers: { 'User-Agent': 'MerkeziServis' } });
     if (!r.ok) throw new Error('HTTP ' + r.status + ' – ' + url);
-    return Buffer.from(await r.arrayBuffer());
+    if (!onChunk || !r.body) return Buffer.from(await r.arrayBuffer());
+    const reader = r.body.getReader(); const parts = []; let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      parts.push(Buffer.from(value)); got += value.length; onChunk(value.length, got);
+    }
+    return Buffer.concat(parts);
   } finally { clearTimeout(tm); }
 }
 let workingBase = null;
-async function fetchFrom(base, rel) {
+async function fetchFrom(base, rel, onChunk) {
   const list = workingBase && MIRRORS(base).includes(workingBase) ? [workingBase, ...MIRRORS(base).filter(x => x !== workingBase)] : MIRRORS(base);
   let lastErr;
   for (const b of list) {
-    try { const buf = await fetchOne(b + rel + (b.includes('jsdelivr') ? '' : (rel.includes('?') ? '&' : '?') + 't=' + Date.now())); workingBase = b; return buf; }
-    catch (e) { lastErr = e; }
+    let got = 0;
+    try { const buf = await fetchOne(b + rel + (b.includes('jsdelivr') ? '' : (rel.includes('?') ? '&' : '?') + 't=' + Date.now()), onChunk && ((n, g) => { got = g; onChunk(n); })); workingBase = b; return buf; }
+    catch (e) { lastErr = e; if (onChunk && got) onChunk(-got); }
   }
   throw lastErr;
 }
@@ -103,13 +110,20 @@ ipcMain.handle('update:apply', async (e, baseUrl) => {
   if (!files.length) throw new Error('Manifest dosya listesi boş');
   const tmp = path.join(UPDATE_DIR(), 'tmp-' + Date.now());
   fs.mkdirSync(tmp, { recursive: true });
+  // İlerleme bildirimi: indirilen / toplam bayt (toplam manifestteki "sizes" alanından)
+  const sizes = manifest.sizes || {};
+  const total = files.reduce((a, f) => a + (sizes[f] || 0), 0);
+  let done = 0, lastSent = 0;
+  const send = (force) => { const now = Date.now(); if (!force && now - lastSent < 120) return; lastSent = now; try { e.sender.send('update:progress', { done, total, version: manifest.display || manifest.version }); } catch (_) { } };
+  send(true);
   for (const f of files) {
-    const buf = await fetchFrom(base, f);
+    const buf = await fetchFrom(base, f, n => { done += n; send(false); });
     const dest = path.join(tmp, f);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, buf);
   }
-  fs.writeFileSync(path.join(tmp, 'www', 'version.json'), JSON.stringify({ version: manifest.version }), 'utf8');
+  send(true);
+  fs.writeFileSync(path.join(tmp, 'www', 'version.json'), JSON.stringify({ version: manifest.version, display: manifest.display }), 'utf8');
   // Güncellemede gelmeyen dosyaları (seed.json, kütüphaneler, resimler) paketten tamamla
   const copyMissing = (src, dst) => {
     for (const name of fs.readdirSync(src)) {
