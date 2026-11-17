@@ -234,7 +234,7 @@ th,td{text-align:start}
 .mlrow input[type=color]{width:40px;height:34px;padding:2px}
 .mlarrow{font-size:18px;color:var(--muted);padding-bottom:6px}
 .mlord{display:flex;flex-direction:column;gap:2px}
-.topbar .dd.upd{min-width:280px;max-width:340px}
+.topbar .dd.upd{width:320px;max-width:calc(100vw - 24px)}
 .topbar .dd .pad{padding:10px 12px;font-size:13px;color:var(--ink)}
 .topbar .dd .pad.err{color:var(--bad)}
 
@@ -246,3 +246,17 @@ select.pst.man{outline:2px dashed #b45309;outline-offset:1px}
 .locstat{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;text-decoration:none;color:inherit}
 .locstat:hover{background:#fafaf5;border-color:#c9bd92}
 .locstat .v{font-size:24px}
+
+/* İndirme ilerleme kutusu */
+.pg{font-size:13px;color:var(--ink)}
+.pg-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;white-space:nowrap}
+.pg-pct{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--info)}
+.pg-sz{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pg-grid{display:grid;grid-template-columns:auto 1fr;column-gap:14px;row-gap:3px;margin-top:4px}
+.pg-k{color:var(--muted);white-space:nowrap}
+.pg-v{text-align:end;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbbtn.upd.busy #updLbl{min-width:118px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.topbar .dd .pad>b{display:block;line-height:1.35}
+.upd-info{display:flex;flex-wrap:wrap;column-gap:6px;row-gap:2px}
+.upd-info>span{white-space:nowrap}
+.topbar .dd .pad .small{line-height:1.4;overflow-wrap:normal;word-break:normal}

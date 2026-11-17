@@ -1,6 +1,6 @@
 {
-  "version": "1.8.1",
-  "notes": "Sağ üstte belirgin Eşitle ve Güncelle düğmeleri; güncelleme indirilirken yüzde, MB, kalan ve hız gösterimi",
+  "version": "1.8.2",
+  "notes": "Güncelleme indirme penceresi düzenlendi: yüzde, indirilen/toplam/kalan MB, hız ve tahmini süre ayrı satırlarda; yazılar artık yarım kesilmiyor",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -11,13 +11,13 @@
     "www/vendor/leaflet.js",
     "www/vendor/leaflet.css"
   ],
-  "display": "1.0.1",
+  "display": "1.0.2",
   "sizes": {
     "www/index.html": 1520,
-    "www/app.js": 103028,
-    "www/style.css": 16747,
+    "www/app.js": 103768,
+    "www/style.css": 17671,
     "www/geo.js": 4815,
-    "www/i18n.js": 44089,
+    "www/i18n.js": 44342,
     "www/map.js": 25845,
     "www/vendor/leaflet.js": 147552,
     "www/vendor/leaflet.css": 14806
