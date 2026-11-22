@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
