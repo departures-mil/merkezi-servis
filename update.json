@@ -1,6 +1,6 @@
 {
-  "version": "1.8.8",
-  "notes": "Admin duyuruları: programa yeni duyurular gelir, 🔔 düğmesinden okunur",
+  "version": "1.8.9",
+  "notes": "Ayarlar'a «Kullanım Limitleri» eklendi: program sınırlı bir bulut ya da yapay zekâ hizmeti kullanmaz, kullanım sınırı yoktur.",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -11,11 +11,12 @@
     "www/vendor/leaflet.js",
     "www/vendor/leaflet.css",
     "www/admin-iletisim.js",
-    "www/duyuru.js"
+    "www/duyuru.js",
+    "www/kullanim.js"
   ],
-  "display": "1.0.6",
+  "display": "1.0.7",
   "sizes": {
-    "www/index.html": 2290,
+    "www/index.html": 2562,
     "www/app.js": 104198,
     "www/style.css": 17671,
     "www/geo.js": 4815,
@@ -24,6 +25,7 @@
     "www/vendor/leaflet.js": 147552,
     "www/vendor/leaflet.css": 14806,
     "www/admin-iletisim.js": 7429,
-    "www/duyuru.js": 9186
+    "www/duyuru.js": 9186,
+    "www/kullanim.js": 21684
   }
 }
