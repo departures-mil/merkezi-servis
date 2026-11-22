@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.0.3';
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
 const GROUPS_DEFAULT = ['A', 'A1', 'B', 'B2'];
@@ -956,6 +956,14 @@ function editLetterhead(id) {
 }
 
 // ---------------- başlangıç ----------------
+// v1.0.3: program her açılışta ekranı kaplar (pencere düğmeleri — küçült / ekranı kapla / kapat — sağ üstte kalır)
+function fillScreen() {
+  try {
+    const W = screen.availWidth, H = screen.availHeight;
+    if (window.outerWidth < W - 8 || window.outerHeight < H - 8) { window.moveTo(screen.availLeft || 0, screen.availTop || 0); window.resizeTo(W, H); }
+  } catch (e) { /* önemli değil */ }
+}
+fillScreen();
 (async function init() {
   S = await loadState();
   applyLang(S.settings.lang || 'tr');
