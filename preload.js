@@ -11,5 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateProgress: (cb) => { const fn = (e, d) => cb(d); ipcRenderer.on('update:progress', fn); return () => ipcRenderer.removeListener('update:progress', fn); },
   resetUpdate: () => ipcRenderer.invoke('update:reset'),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
-  print: () => ipcRenderer.invoke('app:print')
+  print: () => ipcRenderer.invoke('app:print'),
+  sendContact: (m) => ipcRenderer.invoke('contact:send', m)
 });

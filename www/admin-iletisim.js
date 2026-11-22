@@ -4,6 +4,7 @@
  * Kullanım: bu dosyadan ÖNCE
  *   window.ADMIN_ILETISIM = { app: 'Uygulama adı', version: () => '1.0.0', anchor: () => element|null,
  *                             lang: () => 'tr'|'en'|'ar', cls: { card, title, input, btn, muted } }
+ * İsteğe bağlı send(m) → Promise<{ok}>: mesajı ana süreç gönderir (file:// sayfalarda FormSubmit Referer ister).
  * anchor() Ayarlar ekranı açıkken bölümün ekleneceği kapsayıcıyı döndürür; değilse null.
  * Gönderilemeyen mesaj saklanır, internet gelince kendiliğinden gönderilir.
  */
@@ -23,6 +24,7 @@
   function q() { try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch (e) { return []; } }
   function setQ(a) { try { localStorage.setItem(QKEY, JSON.stringify(a.slice(-20))); } catch (e) {} }
   function post(m) {
+    if (C.send) return Promise.resolve(C.send(m)).then(function (r) { if (!r || !r.ok) throw new Error((r && r.error) || 'fail'); });
     var body = { _subject: (C.app || 'Uygulama') + ': yeni mesaj', _template: 'table', _captcha: 'false', Ad: m.name || '-', Mesaj: m.message, Surum: m.version || '', Cihaz: m.device || '', Dil: m.lang || '' };
     if (m.email) { body.email = m.email; body._replyto = m.email; }
     return fetch('https://formsubmit.co/ajax/' + to(), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
