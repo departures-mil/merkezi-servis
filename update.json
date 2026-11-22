@@ -1,6 +1,6 @@
 {
-  "version": "1.8.9",
-  "notes": "Ayarlar'a «Kullanım Limitleri» eklendi: program sınırlı bir bulut ya da yapay zekâ hizmeti kullanmaz, kullanım sınırı yoktur.",
+  "version": "1.8.10",
+  "notes": "«Admin ile iletişime geç» düzeltildi: mesajlarınız artık yöneticiye güvenilir biçimde ulaşıyor. Kayıtlarınız olduğu gibi kalır.",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -14,7 +14,7 @@
     "www/duyuru.js",
     "www/kullanim.js"
   ],
-  "display": "1.0.7",
+  "display": "1.0.8",
   "sizes": {
     "www/index.html": 2562,
     "www/app.js": 104198,
@@ -24,7 +24,7 @@
     "www/map.js": 25845,
     "www/vendor/leaflet.js": 147552,
     "www/vendor/leaflet.css": 14806,
-    "www/admin-iletisim.js": 7429,
+    "www/admin-iletisim.js": 8594,
     "www/duyuru.js": 9186,
     "www/kullanim.js": 21684
   }

@@ -143,17 +143,27 @@ ipcMain.handle('update:apply', async (e, baseUrl) => {
 ipcMain.handle('update:reset', () => { const t = UPDATE_WWW(); if (fs.existsSync(t)) fs.rmSync(t, { recursive: true, force: true }); return true; });
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
 // admin ile iletişim — FormSubmit, Referer/Origin başlığı olmayan isteği reddeder; mesaj ana süreçten gider
-ipcMain.handle('contact:send', async (e, m) => {
+// Yöneticiye mesaj: iki bağımsız kanal, biri kabul ederse ulaşmış sayılır.
+//  1) Yöneticinin mesaj kutusu (Firestore "mesajlar", yalnızca ekleme; okuma yok) — her ağdan, etkinleştirme gerektirmez
+//  2) E-posta kopyası (FormSubmit) — Referer'sız isteği reddeder; etkinleştirilmiş site Referer olarak gönderilir
+const __adminSend = async (m) => {
   const msg = String((m && m.message) || '').slice(0, 5000).trim();
   if (!msg) return { ok: false, error: 'empty' };
+  const name = String(m.name || '').slice(0, 80).trim(), mail = String(m.email || '').slice(0, 120).trim(), ver = String(m.version || app.getVersion());
+  const F = (v) => ({ stringValue: String(v || '').slice(0, 4000) });
+  const fields = { mesaj: F(msg), konu: F('Merkezi Servis · ' + String(m.topic || 'Mesaj')), dil: F(m.lang), surum: F(ver), platform: F('Merkezi Servis · Windows'), zaman: { timestampValue: new Date().toISOString() } };
+  if (name) fields.ad = F(name);
+  if (mail) fields.iletisim = F(mail);
   const to = Buffer.from('bW9jLmxpYW1ub3RvcnBANDMyMWxkaW50bWxkYmE=', 'base64').toString().split('').reverse().join('');
-  const body = { _subject: 'Merkezi Servis: yeni mesaj', _template: 'table', _captcha: 'false', Ad: String(m.name || '-').slice(0, 80), Mesaj: msg, Surum: String(m.version || app.getVersion()), Cihaz: 'Windows', Dil: String(m.lang || '') };
-  if (m.email) { body.email = String(m.email).slice(0, 120); body._replyto = body.email; }
-  try {
-    const r = await fetch('https://formsubmit.co/ajax/' + to, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Referer: 'https://departures-mil.github.io/merkezi-servis/', Origin: 'https://departures-mil.github.io' }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
-    if ((!r.ok || String(j.success) === 'false') && !/activat/i.test(j.message || '')) return { ok: false, error: j.message || String(r.status) };
-    return { ok: true };
-  } catch (err) { return { ok: false, error: err.message }; }
-});
+  const body = { _subject: 'Merkezi Servis: yeni mesaj', _template: 'table', _captcha: 'false', Ad: name || '-', Mesaj: msg, Surum: ver, Cihaz: 'Windows', Dil: String(m.lang || '') };
+  if (mail) { body.email = mail; body._replyto = mail; }
+  const inbox = fetch('https://firestore.googleapis.com/v1/projects/comm-calc-103111111/databases/(default)/documents/mesajlar?key=AIzaSyB12RFS6ENPpmnnPsETfjedNH-3hmNWQvA',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }), signal: AbortSignal.timeout(20000) }).then((r) => r.ok, () => false);
+  const email = fetch('https://formsubmit.co/ajax/' + to, { method: 'POST', signal: AbortSignal.timeout(20000),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', Referer: 'https://formsubmit.co/', Origin: 'https://formsubmit.co', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    body: JSON.stringify(body) }).then((r) => r.json().catch(() => ({}))).then((j) => String(j.success) === 'true', () => false);
+  const [a, b] = await Promise.all([inbox, email]);
+  return a || b ? { ok: true } : { ok: false, error: 'network' };
+};
+ipcMain.handle('contact:send', (e, m) => __adminSend(m));
 ipcMain.handle('app:print', () => win.webContents.print({ silent: false, printBackground: true }));
