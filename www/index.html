@@ -52,5 +52,7 @@
 <script src="admin-iletisim.js"></script>
 <script src="duyuru.js"></script>
 <script>Duyuru.baslat({uygulama:'merkezi-servis',surum:(typeof APP_VERSION!=='undefined'?APP_VERSION:'0'),dil:function(){return document.documentElement.lang},guncelle:function(){try{autoUpdate(true)}catch(e){}}});</script>
+<script src="kullanim.js"></script>
+<script>Kullanim.baslat({uygulama:'merkezi-servis',bulut:false,ai:false,sinif:'card',dil:function(){return document.documentElement.lang}});Kullanim.yerlestir(function(){return document.getElementById('admin-iletisim')},true);</script>
 </body>
 </html>
