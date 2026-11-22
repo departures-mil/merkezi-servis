@@ -1,6 +1,6 @@
 {
-  "version": "1.8.2",
-  "notes": "Güncelleme indirme penceresi düzenlendi: yüzde, indirilen/toplam/kalan MB, hız ve tahmini süre ayrı satırlarda; yazılar artık yarım kesilmiyor",
+  "version": "1.8.3",
+  "notes": "Program her açılışta ekranı tam kaplar; pencere düğmeleri (küçült, ekranı kapla, kapat) sağ üstte kalır.",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -11,10 +11,10 @@
     "www/vendor/leaflet.js",
     "www/vendor/leaflet.css"
   ],
-  "display": "1.0.2",
+  "display": "1.0.3",
   "sizes": {
     "www/index.html": 1520,
-    "www/app.js": 103768,
+    "www/app.js": 104198,
     "www/style.css": 17671,
     "www/geo.js": 4815,
     "www/i18n.js": 44342,
