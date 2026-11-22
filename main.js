@@ -142,4 +142,18 @@ ipcMain.handle('update:apply', async (e, baseUrl) => {
 });
 ipcMain.handle('update:reset', () => { const t = UPDATE_WWW(); if (fs.existsSync(t)) fs.rmSync(t, { recursive: true, force: true }); return true; });
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
+// admin ile iletişim — FormSubmit, Referer/Origin başlığı olmayan isteği reddeder; mesaj ana süreçten gider
+ipcMain.handle('contact:send', async (e, m) => {
+  const msg = String((m && m.message) || '').slice(0, 5000).trim();
+  if (!msg) return { ok: false, error: 'empty' };
+  const to = Buffer.from('', 'base64').toString().split('').reverse().join('');
+  const body = { _subject: 'Merkezi Servis: yeni mesaj', _template: 'table', _captcha: 'false', Ad: String(m.name || '-').slice(0, 80), Mesaj: msg, Surum: String(m.version || app.getVersion()), Cihaz: 'Windows', Dil: String(m.lang || '') };
+  if (m.email) { body.email = String(m.email).slice(0, 120); body._replyto = body.email; }
+  try {
+    const r = await fetch('https://formsubmit.co/ajax/' + to, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Referer: 'https://departures-mil.github.io/merkezi-servis/', Origin: 'https://departures-mil.github.io' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if ((!r.ok || String(j.success) === 'false') && !/activat/i.test(j.message || '')) return { ok: false, error: j.message || String(r.status) };
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
+});
 ipcMain.handle('app:print', () => win.webContents.print({ silent: false, printBackground: true }));

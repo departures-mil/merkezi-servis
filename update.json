@@ -1,6 +1,6 @@
 {
-  "version": "1.8.5",
-  "notes": "Ayarlar'ın sonuna 'Admin ile iletişime geç' bölümü eklendi (TR/EN/AR); öneri ve hata bildirimleri doğrudan yöneticiye gider",
+  "version": "1.8.6",
+  "notes": "Admin mesajları ana süreçten gönderilir (yeni kurulumda); güncelleme ekranı",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -12,9 +12,9 @@
     "www/vendor/leaflet.css",
     "www/admin-iletisim.js"
   ],
-  "display": "1.0.4",
+  "display": "1.0.5",
   "sizes": {
-    "www/index.html": 1915,
+    "www/index.html": 2032,
     "www/app.js": 104198,
     "www/style.css": 17671,
     "www/geo.js": 4815,
@@ -22,6 +22,6 @@
     "www/map.js": 25845,
     "www/vendor/leaflet.js": 147552,
     "www/vendor/leaflet.css": 14806,
-    "www/admin-iletisim.js": 7171
+    "www/admin-iletisim.js": 7429
   }
 }
