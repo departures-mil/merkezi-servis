@@ -1,8 +1,9 @@
 {
-  "version": "1.8.12",
-  "notes": "Modüler sistem: Ayarlar > Modüller bölümünden Seferler & Yoklama, Araçlar, Maliyet, Ana Hatlar & Harita, Şoförler ve Kayıtlar tek tıkla gizlenip açılabilir. Gizlenen bölümün verileri silinmez.",
+  "version": "1.8.13",
+  "notes": "Gruplar: tek tuşla Ev / Kadısiye / Hama'ya taşıma (toplu seçimle de), grup adını ✎ ile değiştirme (aynı ad engellenir), 10 günde bir otomatik Ev ↔ İş rotasyonu (duraklat, şimdi değiştir, grubu sabitle), grup işlem geçmişi ve geri al.",
   "files": [
     "www/index.html",
+    "www/gruplar.js",
     "www/app.js",
     "www/style.css",
     "www/geo.js",
@@ -16,20 +17,21 @@
     "www/pro.js",
     "www/vendor/qrcode.js"
   ],
-  "display": "1.0.10",
+  "display": "1.0.11",
   "sizes": {
-    "www/index.html": 3192,
-    "www/app.js": 109717,
-    "www/style.css": 26101,
+    "www/index.html": 3227,
+    "www/gruplar.js": 14367,
+    "www/app.js": 109889,
+    "www/style.css": 26348,
     "www/geo.js": 4815,
-    "www/i18n.js": 44342,
-    "www/map.js": 25845,
+    "www/i18n.js": 49659,
+    "www/map.js": 25852,
     "www/vendor/leaflet.js": 147552,
     "www/vendor/leaflet.css": 14806,
     "www/admin-iletisim.js": 8594,
     "www/duyuru.js": 9186,
     "www/kullanim.js": 21684,
-    "www/pro.js": 133992,
+    "www/pro.js": 134021,
     "www/vendor/qrcode.js": 56694
   }
 }
