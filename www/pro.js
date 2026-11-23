@@ -129,6 +129,15 @@
     'Araç ve şoför atamaları Seferler sayfasından yapılır.': ['Vehicles and drivers are assigned on the Trips page.', 'يتم تخصيص المركبات والسائقين من صفحة الرحلات.'],
     'otobüs': ['bus', 'حافلة'], 'kişi': ['people', 'شخص'], 'gün': ['days', 'يوم'], 'Yükleme': ['Load', 'الحمولة'], 'Excel şablonu: Plaka, Model, Yıl, Kapasite, Sahiplik, Taşeron, Ücret, Para birimi, Sigorta bitişi, Muayene bitişi, Ruhsat bitişi, Kilometre': ['Excel template: Plate, Model, Year, Capacity, Ownership, Contractor, Rate, Currency, Insurance expiry, Inspection expiry, Registration expiry, Odometer', 'قالب Excel: اللوحة، الطراز، السنة، السعة، الملكية، المتعهد، الأجر، العملة، انتهاء التأمين، انتهاء الفحص، انتهاء الترخيص، العداد'],
     'Yolcu yok': ['No passengers', 'لا ركاب'], 'Sefer bilgisi': ['Trip info', 'معلومات الرحلة'], 'Gidiş': ['Outbound', 'ذهاب'], 'Dönüş': ['Return', 'عودة'], 'Hepsini temizle': ['Clear all', 'مسح الكل'], 'Kart': ['Card', 'بطاقة'],
+    'Modüller': ['Modules', 'الوحدات'], 'Kullanmadığınız bölümleri kapatın; menüden, panelden ve raporlardan kalkar. Kayıtlı veriler silinmez, modülü açınca geri gelir.': ['Turn off the sections you don\'t use; they disappear from the menu, dashboard and reports. Saved data is not deleted and comes back when you turn the module on.', 'أوقف الأقسام التي لا تستخدمها؛ فتختفي من القائمة واللوحة والتقارير. لا تُحذف البيانات المحفوظة وتعود عند تشغيل الوحدة.'],
+    'Önce şu modülü açın': ['Turn this module on first', 'شغّل هذه الوحدة أولاً'], 'Ana Hatlar & Harita': ['Main Lines & Map', 'الخطوط الرئيسية والخريطة'], 'Şoförler': ['Drivers', 'السائقون'],
+    'Araç/şoför atama, kapasite kontrolü, yoklama, QR kartlar': ['Vehicle/driver assignment, capacity check, attendance, QR cards', 'تخصيص المركبات والسائقين، فحص السعة، التفقد، بطاقات QR'],
+    'Araç kartları, belge uyarıları, bakım ve yakıt kayıtları': ['Vehicle cards, document alerts, maintenance and fuel records', 'بطاقات المركبات، تنبيهات الوثائق، سجلات الصيانة والوقود'],
+    'Maliyet, taşeron hakedişi, kur ayarları': ['Costs, contractor payments, exchange rates', 'التكاليف، مستحقات المتعهدين، أسعار الصرف'],
+    'Ana hatlar sayfası ve Genel Durum haritası': ['Main lines page and the dashboard map', 'صفحة الخطوط الرئيسية وخريطة الحالة العامة'],
+    'Şoför listesi ve nöbet düzeni': ['Driver list and duty rota', 'قائمة السائقين وجدول المناوبة'],
+    'İşlem geçmişi, çöp kutusu ve yedek listesi (otomatik yedek her zaman çalışır)': ['Activity log, recycle bin and backup list (automatic backup always runs)', 'سجل العمليات وسلة المحذوفات وقائمة النسخ (النسخ التلقائي يعمل دائماً)'],
+    'açık': ['on', 'مفعّل'], 'kapalı': ['off', 'متوقف'],
     'Sürüm': ['Version', 'الإصدار'], 'Yenilikler': ['What\'s new', 'الجديد'], 'Tamam': ['OK', 'حسناً']
   };
   window.I18N = window.I18N || {}; ['en', 'ar'].forEach((l, i) => { window.I18N[l] = window.I18N[l] || {}; for (const k in TX) if (!(k in window.I18N[l])) window.I18N[l][k] = TX[k][i]; });
@@ -341,8 +350,8 @@
       <button class="btn primary" id="tAdd">${t('+ Ek sefer')}</button></div>
     <div class="grid c4">
       <div class="card stat"><div class="v">${list.length}</div><div class="l">${t('Sefer sayısı')}</div></div>
-      <div class="card stat"><div class="v ${checks.some(([, c]) => c.noVeh) ? 'txt-warn' : ''}">${checks.filter(([, c]) => c.noVeh).length}</div><div class="l">${t('Araçsız')}</div></div>
-      <div class="card stat"><div class="v ${checks.some(([, c]) => c.over) ? 'txt-bad' : ''}">${checks.filter(([, c]) => c.over).length}</div><div class="l">${t('Kapasite uyarısı')}</div></div>
+      ${modOn('vehicles') ? `<div class="card stat"><div class="v ${checks.some(([, c]) => c.noVeh) ? 'txt-warn' : ''}">${checks.filter(([, c]) => c.noVeh).length}</div><div class="l">${t('Araçsız')}</div></div>
+      <div class="card stat"><div class="v ${checks.some(([, c]) => c.over) ? 'txt-bad' : ''}">${checks.filter(([, c]) => c.over).length}</div><div class="l">${t('Kapasite uyarısı')}</div></div>` : ''}
       <div class="card stat"><div class="v">${attDone} / ${list.length}</div><div class="l">${t('Yoklama alınan')}</div></div>
     </div>
     ${list.length ? checks.map(([tr, c]) => tripCard(tr, c)).join('') : `<div class="card muted">${t('Bu tarihte sefer yok')}</div>`}`;
@@ -386,7 +395,7 @@
   }
   function tripCard(tr, c) {
     const L = lineById(tr.lineId); const att = S.attendance[tr.id] || {}; const marked = Object.keys(att).length, absent = Object.values(att).filter(v => v === 0).length;
-    const warn = [];
+    const warn = []; const VM = modOn('vehicles'); if (!VM) { c.noVeh = false; c.over = false; }
     if (c.noVeh) warn.push(`<span class="badge warn">${t('Araç atanmadı')}</span>`);
     if (c.noDrv || c.noDrv2) warn.push(`<span class="badge warn">${t('Şoför atanmadı')}</span>`);
     if (c.over) warn.push(`<span class="badge bad">${t('Kapasite aşıldı')}: ${c.loads.join(' + ')} / ${c.caps.join(' + ')}</span>${tr.kind === 'change' && c.nb === 1 ? `<button class="btn sm" data-split>${t('2 otobüse böl')}</button>` : ''}<button class="btn sm" data-sug>${t('Uygun araç öner')}</button>`);
@@ -399,14 +408,14 @@
       <div class="trip-grid">
         <label class="f">${t('Vakit')}${sel('slot', SLOTS.map(([k, l]) => `<option value="${k}" ${tr.slot === k ? 'selected' : ''}>${t(l)}</option>`).join(''))}</label>
         <label class="f">${t('Kalkış')}<input type="time" data-f="time" value="${h(tr.time || '')}"></label>
-        <label class="f">${t('Araç')}${c.nb === 2 ? ' 1' : ''}${sel('vehicleId', vehOpts(tr.vehicleId))}</label>
+        ${VM ? `<label class="f">${t('Araç')}${c.nb === 2 ? ' 1' : ''}${sel('vehicleId', vehOpts(tr.vehicleId))}</label>` : ''}
         <label class="f">${t('Şoför')}${c.nb === 2 ? ' 1' : ''}${sel('driverId', drvOpts(tr.driverId, tr.date))}</label>
-        ${c.nb === 2 ? `<label class="f">${t('Araç 2')}${sel('vehicle2Id', vehOpts(tr.vehicle2Id))}</label><label class="f">${t('Şoför 2')}${sel('driver2Id', drvOpts(tr.driver2Id, tr.date))}</label>` : ''}
+        ${c.nb === 2 ? `${VM ? `<label class="f">${t('Araç 2')}${sel('vehicle2Id', vehOpts(tr.vehicle2Id))}</label>` : ''}<label class="f">${t('Şoför 2')}${sel('driver2Id', drvOpts(tr.driver2Id, tr.date))}</label>` : ''}
         <label class="f">${t('Durum')}${sel('status', [['planned', 'Planlandı'], ['done', 'Tamamlandı'], ['cancelled', 'İptal']].map(([k, l]) => `<option value="${k}" ${tr.status === k ? 'selected' : ''}>${t(l)}</option>`).join(''))}</label>
         <label class="f">${t('Not')}<input data-f="note" dir="auto" value="${h(tr.note || '')}"></label>
       </div>
       <div class="row" style="margin-top:8px">
-        <span class="cap-bar" title="${t('Doluluk')}">${c.loads.map((l, i) => { const cap = c.caps[i]; const pct = cap ? Math.min(100, Math.round(l / cap * 100)) : 0; return `<span class="cb"><i style="width:${pct}%" class="${cap && l > cap ? 'over' : ''}"></i></span><span class="small muted">${l} / ${cap || '?'}</span>`; }).join(' ')}</span>
+        <span class="cap-bar" title="${t('Doluluk')}">${!VM ? '' : c.loads.map((l, i) => { const cap = c.caps[i]; const pct = cap ? Math.min(100, Math.round(l / cap * 100)) : 0; return `<span class="cb"><i style="width:${pct}%" class="${cap && l > cap ? 'over' : ''}"></i></span><span class="small muted">${l} / ${cap || '?'}</span>`; }).join(' ')}</span>
         <span style="flex:1"></span>
         <span class="small muted">${t('Yoklama')}: ${marked}/${c.rows.length}${absent ? ` · <b class="txt-bad">${absent} ${t('Gelmedi')}</b>` : ''}</span>
         <button class="btn sm primary" data-att>✔ ${t('Yoklama')}</button>
@@ -731,9 +740,30 @@
 
   P.pages = { trips: renderTrips, vehicles: renderVehicles, costs: renderCosts, records: renderRecords };
 
+  // ================= modüller =================
+  // Kapatılan modülün verisi silinmez; yalnızca menüden, panelden, raporlardan ve formlardan gizlenir.
+  const MODULES = [
+    { id: 'trips', icon: '🚍', name: 'Seferler & Yoklama', desc: 'Araç/şoför atama, kapasite kontrolü, yoklama, QR kartlar', pages: ['trips'] },
+    { id: 'vehicles', icon: '🚐', name: 'Araçlar', desc: 'Araç kartları, belge uyarıları, bakım ve yakıt kayıtları', pages: ['vehicles'] },
+    { id: 'costs', icon: '💰', name: 'Maliyet', desc: 'Maliyet, taşeron hakedişi, kur ayarları', pages: ['costs'], needs: ['vehicles'] },
+    { id: 'mainlines', icon: '🧭', name: 'Ana Hatlar & Harita', desc: 'Ana hatlar sayfası ve Genel Durum haritası', pages: ['mainlines'] },
+    { id: 'drivers', icon: '🚌', name: 'Şoförler', desc: 'Şoför listesi ve nöbet düzeni', pages: ['drivers'] },
+    { id: 'records', icon: '📜', name: 'Kayıtlar', desc: 'İşlem geçmişi, çöp kutusu ve yedek listesi (otomatik yedek her zaman çalışır)', pages: ['records'] }
+  ];
+  const modOn = id => { const st = (hasS() && S.settings.modules) || {}; const M = MODULES.find(x => x.id === id); if (!M) return true; if (st[id] === false) return false; return (M.needs || []).every(modOn); };
+  P.mod = modOn; P.modules = MODULES;
+  const pageModule = pg => (MODULES.find(M => M.pages.includes(pg)) || {}).id;
+  const REPORT_MOD = { driverStops: 'trips', trips: 'trips', attendance: 'trips', qrcards: 'trips', vehicles: 'vehicles', maint: 'vehicles', payments: 'costs', drivers: 'drivers' };
+  P.reportAllowed = ty => !REPORT_MOD[ty] || modOn(REPORT_MOD[ty]);
+  function modulesCard() {
+    const st = S.settings.modules || {};
+    return `<div class="card"><h2>🧩 ${t('Modüller')}</h2><p class="small muted">${t('Kullanmadığınız bölümleri kapatın; menüden, panelden ve raporlardan kalkar. Kayıtlı veriler silinmez, modülü açınca geri gelir.')}</p>
+      <div class="mods">${MODULES.map(M => { const on = st[M.id] !== false; const blocked = on && !modOn(M.id); return `<label class="mod ${on && !blocked ? 'on' : ''}"><input type="checkbox" data-mod="${M.id}" ${on ? 'checked' : ''} ${P.isAdmin() ? '' : 'disabled'}><span class="mi">${M.icon}</span><span class="mt"><b>${t(M.name)}</b><small>${t(M.desc)}</small>${blocked ? `<small class="txt-warn">${t('Önce şu modülü açın')}: ${(M.needs || []).filter(n => !modOn(n)).map(n => t(MODULES.find(x => x.id === n).name)).join(', ')}</small>` : ''}</span><span class="sw"></span></label>`; }).join('')}</div></div>`;
+  }
+
   // ================= menü, kullanıcı kutusu, rol arayüzü =================
-  P.navAllowed = p => { if (p === 'records') return role() !== 'viewer'; return true; };
-  P.navBadge = p => { if (p === 'vehicles') { const n = docAlerts().length; return n ? ` <span class="nbadge">${n}</span>` : ''; } return ''; };
+  P.navAllowed = p => { const md = pageModule(p); if (md && !modOn(md)) return false; if (p === 'records') return role() !== 'viewer'; return true; };
+  P.navBadge = p => { if (p === 'vehicles' && modOn('vehicles')) { const n = docAlerts().length; return n ? ` <span class="nbadge">${n}</span>` : ''; } return ''; };
   P.userBox = function () {
     const f = $('.side-foot'); if (!f) return; let el = $('#userBox'); if (!el) { el = document.createElement('div'); el.id = 'userBox'; el.className = 'userbox'; f.insertBefore(el, f.firstChild); }
     if (!P.user || P.user.implicit) { el.innerHTML = ''; return; }
@@ -750,18 +780,23 @@
     const h1 = $('h1', m); if (!h1) return;
     const d0 = todayISO(); const nx = upcomingChangeDates(5).find(d => d >= d0) || d0;
     const trs = tripsOn(nx); const ch = trs.map(tripCheck);
-    const al = docAlerts(); const C = costsFor(monthOf(d0));
-    const box = document.createElement('div'); box.className = 'grid c3';
-    box.innerHTML = `
+    const al = modOn('vehicles') ? docAlerts() : []; const C = modOn('costs') ? costsFor(monthOf(d0)) : null;
+    const cards = [];
+    if (modOn('trips')) cards.push(`
       <div class="card"><div class="row between"><h2>🚍 ${t('Seferler')}</h2><button class="btn sm" data-pgo="trips">${t('Seferleri aç')}</button></div>
         <div class="small muted">${t('Sonraki değişim günü')}: <b>${fmt(nx)} ${dayName(nx)}</b> (${diffDays(d0, nx)} ${t('gün')})</div>
         <div class="kv" style="margin-top:8px"><b>${t('Sefer sayısı')}</b><span>${trs.length}</span><b>${t('Yolcu')}</b><span>${ch.reduce((a, c) => a + c.rows.length, 0)}</span>
-        <b>${t('Araçsız')}</b><span>${ch.filter(c => c.noVeh).length ? `<span class="badge warn">${ch.filter(c => c.noVeh).length}</span>` : '✓'}</span>
-        <b>${t('Kapasite uyarısı')}</b><span>${ch.filter(c => c.over).length ? `<span class="badge bad">${ch.filter(c => c.over).length}</span>` : '✓'}</span></div></div>
+        ${modOn('vehicles') ? `<b>${t('Araçsız')}</b><span>${ch.filter(c => c.noVeh).length ? `<span class="badge warn">${ch.filter(c => c.noVeh).length}</span>` : '✓'}</span>
+        <b>${t('Kapasite uyarısı')}</b><span>${ch.filter(c => c.over).length ? `<span class="badge bad">${ch.filter(c => c.over).length}</span>` : '✓'}</span>` : ''}</div></div>`);
+    if (modOn('vehicles')) cards.push(`
       <div class="card"><div class="row between"><h2>⚠ ${t('Belge ve bakım uyarıları')}</h2><button class="btn sm" data-pgo="vehicles">${t('Araçlar')}</button></div>
-        ${al.length ? al.slice(0, 6).map(a => `<div class="alert-row"><b dir="auto">${h(a.name)}</b> <span class="muted small">${t(a.doc)}</span> ${alertBadge(a)}</div>`).join('') + (al.length > 6 ? `<div class="small muted">+${al.length - 6}</div>` : '') : `<p class="muted">✓ ${t('Uyarı yok')}</p>`}</div>
+        ${al.length ? al.slice(0, 6).map(a => `<div class="alert-row"><b dir="auto">${h(a.name)}</b> <span class="muted small">${t(a.doc)}</span> ${alertBadge(a)}</div>`).join('') + (al.length > 6 ? `<div class="small muted">+${al.length - 6}</div>` : '') : `<p class="muted">✓ ${t('Uyarı yok')}</p>`}</div>`);
+    if (modOn('costs')) cards.push(`
       <div class="card"><div class="row between"><h2>💰 ${t('Aylık maliyet')}</h2><button class="btn sm" data-pgo="costs">${t('Maliyeti aç')}</button></div>
-        <div class="small muted">${t('Bu ay')}: <b>${money(C.total)}</b>${C.people ? ' · ' + t('Kişi başı') + ' ' + money(C.total / C.people) : ''}</div>${barChart(lastMonths(6), 360, 110)}</div>`;
+        <div class="small muted">${t('Bu ay')}: <b>${money(C.total)}</b>${C.people ? ' · ' + t('Kişi başı') + ' ' + money(C.total / C.people) : ''}</div>${barChart(lastMonths(6), 360, 110)}</div>`);
+    if (!cards.length) return;
+    const box = document.createElement('div'); box.className = 'grid c' + Math.max(2, cards.length);
+    box.innerHTML = cards.join('');
     h1.after(box);
     $$('[data-pgo]', box).forEach(b => b.onclick = () => go(b.dataset.pgo));
   };
@@ -770,16 +805,16 @@
   P.settingsHtml = function () {
     const s = S.settings; const fxv = fx();
     const users = (S.users || []);
-    return `
+    return modulesCard() + `
     <div class="card"><h2>🎨 ${t('Görünüm')}</h2><div class="grid c3">
       <label class="f">${t('Tema')}<select id="s_theme"><option value="light" ${s.theme === 'light' ? 'selected' : ''}>${t('Açık')}</option><option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>${t('Koyu')}</option><option value="auto" ${s.theme === 'auto' ? 'selected' : ''}>${t('Sisteme göre')}</option></select></label>
       <label class="f">${t('Kurum rengi')}<div class="row" style="gap:6px"><input type="color" id="s_accent" value="${h(s.accent || '#8a7a4e')}" style="height:34px;width:60px"><button class="btn sm" id="s_accReset">${t('Varsayılan renk')}</button></div></label>
       <label class="chk" style="margin-top:18px"><input type="checkbox" id="s_splash" ${s.splash === false ? '' : 'checked'}> ${t('Açılış ekranı')}</label></div></div>
-    <div class="card"><h2>💱 ${t('Kur ayarları')}</h2><div class="grid c3">
+    ${modOn('costs') ? `<div class="card"><h2>💱 ${t('Kur ayarları')}</h2><div class="grid c3">
       <label class="f">${t('Gösterim para birimi')}${curSel('s_cur', baseCur())}</label>
       <label class="f">${t('1 USD =')} SYP<input type="number" step="any" id="s_fxSYP" value="${h(fxv.SYP)}"></label>
       <label class="f">${t('1 USD =')} TRY<input type="number" step="any" id="s_fxTRY" value="${h(fxv.TRY)}"></label></div>
-      <div class="row" style="margin-top:8px"><button class="btn primary" id="s_fxSave">${t('Kaydet')}</button></div></div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="s_fxSave">${t('Kaydet')}</button></div></div>` : ''}
     ${P.isAdmin() ? `<div class="card"><div class="row between"><h2>🔐 ${t('Kullanıcılar ve yetkiler')}</h2><button class="btn primary sm" id="uAdd">${t('+ Kullanıcı ekle')}</button></div>
       <p class="small muted">${t('Kullanıcı tanımlanınca açılışta giriş istenir. Yönetici her şeyi yapar; operatör kullanıcı yönetimi ve geri yükleme dışında her şeyi yapar; görüntüleme yetkisi değişiklik yapamaz.')}</p>
       ${users.length ? `<table><tr><th>${t('Ad')}</th><th>${t('Kullanıcı adı')}</th><th>${t('Yetki')}</th><th>${t('Aktif')}</th><th></th></tr>${users.map(u => `<tr><td dir="auto">${h(u.name)}</td><td>${h(u.username)}</td><td>${h(roleLbl(u.role))}</td><td>${u.active !== false ? '✓' : '—'}</td><td><button class="btn sm" data-ue="${u.id}">${t('Düzenle')}</button></td></tr>`).join('')}</table>` : `<p class="muted small">${t('Henüz kullanıcı yok; uygulama şifresiz açılıyor.')}</p>`}</div>` : ''}
@@ -794,7 +829,8 @@
     $('#s_accent', m).onchange = e => { s.accent = e.target.value; save(); P.applyTheme(); };
     $('#s_accReset', m).onclick = () => { delete s.accent; save(); P.applyTheme(); render(); };
     $('#s_splash', m).onchange = e => { s.splash = e.target.checked; save(); };
-    $('#s_fxSave', m).onclick = () => { s.currency = $('#s_cur', m).value; s.fx = Object.assign(fx(), { SYP: num($('#s_fxSYP', m).value) || fx().SYP, TRY: num($('#s_fxTRY', m).value) || fx().TRY }); save(); toast(t('Kaydedildi')); };
+    $$('[data-mod]', m).forEach(c => c.onchange = () => { if (!P.needAdmin()) { c.checked = !c.checked; return; } S.settings.modules = Object.assign({}, S.settings.modules || {}, { [c.dataset.mod]: c.checked }); save(); renderNav(); render(); toast(t(MODULES.find(x => x.id === c.dataset.mod).name) + ': ' + (c.checked ? t('açık') : t('kapalı'))); });
+    const fxs = $('#s_fxSave', m); if (fxs) fxs.onclick = () => { s.currency = $('#s_cur', m).value; s.fx = Object.assign(fx(), { SYP: num($('#s_fxSYP', m).value) || fx().SYP, TRY: num($('#s_fxTRY', m).value) || fx().TRY }); save(); toast(t('Kaydedildi')); };
     const ua = $('#uAdd', m); if (ua) ua.onclick = () => editUser(null);
     $$('[data-ue]', m).forEach(b => b.onclick = () => editUser(b.dataset.ue));
   };
@@ -852,8 +888,8 @@
         const q = inp.value.trim().toLowerCase(); items = [];
         if (q) {
           S.persons.forEach(p => { if ([p.name, p.nickname, p.regNo, p.title].join(' ').toLowerCase().includes(q)) items.push(['👤', p.name, (p.regNo || '') + ' · ' + placeName(p.homeId), () => editPerson(p.id)]); });
-          (S.vehicles || []).forEach(v => { if ([v.plate, v.model, v.contractor].join(' ').toLowerCase().includes(q)) items.push(['🚐', v.plate, v.model || '', () => { go('vehicles'); setTimeout(() => editVehicle(v.id), 30); }]); });
-          S.drivers.forEach(d => { if ([d.name, d.phone].join(' ').toLowerCase().includes(q)) items.push(['🧑‍✈️', d.name, d.phone || '', () => { go('drivers'); setTimeout(() => editDriver(d.id), 30); }]); });
+          (modOn('vehicles') ? S.vehicles || [] : []).forEach(v => { if ([v.plate, v.model, v.contractor].join(' ').toLowerCase().includes(q)) items.push(['🚐', v.plate, v.model || '', () => { go('vehicles'); setTimeout(() => editVehicle(v.id), 30); }]); });
+          (modOn('drivers') ? S.drivers : []).forEach(d => { if ([d.name, d.phone].join(' ').toLowerCase().includes(q)) items.push(['🧑‍✈️', d.name, d.phone || '', () => { go('drivers'); setTimeout(() => editDriver(d.id), 30); }]); });
           S.lines.forEach(L => { if ([L.name, L.nameAr, L.nameEn].join(' ').toLowerCase().includes(q)) items.push(['🛣️', lname(L), '', () => { selLine = L.id; go('lines'); }]); }); // eslint-disable-line
           S.places.forEach(p => { if (p.name.toLowerCase().includes(q)) items.push(['📍', p.name, '', () => { pf = { q: '', group: '', line: '', status: '', work: '', place: p.id }; go('persons'); }]); }); // eslint-disable-line
           NAV.forEach(([pg, ic, lb]) => { if (t(lb).toLowerCase().includes(q) && P.navAllowed(pg)) items.push([ic, t(lb), '', () => go(pg)]); });
@@ -946,13 +982,15 @@
       return body;
     }
     if (type === 'monthly') {
+      const CM = modOn('costs'), VM = modOn('vehicles'), TM = modOn('trips');
       const ym = monthOf(date); const [a, b] = monthRange(ym); const C = costsFor(ym); const st = attStats(a, b, {});
       const lines = S.lines.filter(L => !o.lineId || L.id === o.lineId);
       body = head(t('Aylık özet'), h(monthLbl(ym)));
-      body += `<div class="kvp"><span><b>${t('Sefer sayısı')}:</b> ${C.trips.length}</span><span><b>${t('Taşınan yolcu')}:</b> ${C.trips.reduce((s, tr) => s + tripPassengers(tr).length, 0)}</span><span><b>${t('Yoklama')}:</b> ✔ ${st.tripRows.reduce((s, x) => s + x.y, 0)} · ✕ ${st.tripRows.reduce((s, x) => s + x.n, 0)}</span><span><b>${t('Toplam maliyet')}:</b> ${money(C.total)}</span></div>`;
-      body += `<div class="sec">${t('Seferler ve yolcular')} / ${t('Maliyet')}</div><table><tr><th>${t('Hat')}</th><th>${t('Sefer sayısı')}</th><th>${t('Taşınan yolcu')}</th><th>${t('Hakediş')}</th><th>${t('Yakıt')}</th><th>${t('Bakım')}</th><th>${t('Toplam')}</th><th>${t('Kişi başı')}</th></tr>${lines.map(L => { const x = C.line[L.id] || { trips: 0, pass: 0, pay: 0, fuel: 0, maint: 0 }; const tot = x.pay + x.fuel + x.maint; const ppl = S.persons.filter(p => p.lineId === L.id && personInService(p)).length; return `<tr><td>${h(lname(L))}</td><td>${x.trips}</td><td>${x.pass}</td><td>${money(x.pay)}</td><td>${money(x.fuel)}</td><td>${money(x.maint)}</td><td><b>${money(tot)}</b></td><td>${ppl ? money(tot / ppl) : '—'}</td></tr>`; }).join('')}</table>`;
-      body += `<div class="sec">${t('Araç bazında')}</div><table><tr><th>${t('Araç')}</th><th>${t('Sefer / gün')}</th><th>${t('Hakediş')}</th><th>${t('Yakıt')}</th><th>${t('Bakım')}</th><th>${t('Toplam')}</th></tr>${(S.vehicles || []).map(v => { const V = C.veh[v.id]; if (!V || !(V.trips || V.pay || V.fuel || V.maint)) return ''; return `<tr><td dir="auto">${h(v.plate)}</td><td>${V.trips} / ${V.days.size}</td><td>${money(V.pay)}</td><td>${money(V.fuel)}</td><td>${money(V.maint)}</td><td>${money(V.pay + V.fuel + V.maint)}</td></tr>`; }).join('')}</table>`;
-      const al = docAlerts(); if (al.length) body += `<div class="sec">${t('Uyarılar')}</div><table><tr><th>${t('Kayıt')}</th><th>${t('Tür')}</th><th>${t('Durum')}</th></tr>${al.map(x => `<tr><td dir="auto">${h(x.name)}</td><td>${t(x.doc)}</td><td>${x.km != null ? Math.abs(x.km) + ' ' + (x.km < 0 ? t('km geçti') : t('km kaldı')) : (x.days < 0 ? t('süresi geçti') : t('{0} gün kaldı', x.days)) + (x.date ? ' (' + fmt(x.date) + ')' : '')}</td></tr>`).join('')}</table>`;
+      body += `<div class="kvp"><span><b>${t('Sefer sayısı')}:</b> ${C.trips.length}</span><span><b>${t('Taşınan yolcu')}:</b> ${C.trips.reduce((s, tr) => s + tripPassengers(tr).length, 0)}</span>${TM ? `<span><b>${t('Yoklama')}:</b> ✔ ${st.tripRows.reduce((s, x) => s + x.y, 0)} · ✕ ${st.tripRows.reduce((s, x) => s + x.n, 0)}</span>` : ''}${CM ? `<span><b>${t('Toplam maliyet')}:</b> ${money(C.total)}</span>` : ''}</div>`;
+      if (CM) body += `<div class="sec">${t('Seferler ve yolcular')} / ${t('Maliyet')}</div><table><tr><th>${t('Hat')}</th><th>${t('Sefer sayısı')}</th><th>${t('Taşınan yolcu')}</th><th>${t('Hakediş')}</th><th>${t('Yakıt')}</th><th>${t('Bakım')}</th><th>${t('Toplam')}</th><th>${t('Kişi başı')}</th></tr>${lines.map(L => { const x = C.line[L.id] || { trips: 0, pass: 0, pay: 0, fuel: 0, maint: 0 }; const tot = x.pay + x.fuel + x.maint; const ppl = S.persons.filter(p => p.lineId === L.id && personInService(p)).length; return `<tr><td>${h(lname(L))}</td><td>${x.trips}</td><td>${x.pass}</td><td>${money(x.pay)}</td><td>${money(x.fuel)}</td><td>${money(x.maint)}</td><td><b>${money(tot)}</b></td><td>${ppl ? money(tot / ppl) : '—'}</td></tr>`; }).join('')}</table>`;
+      else body += `<div class="sec">${t('Seferler ve yolcular')}</div><table><tr><th>${t('Hat')}</th><th>${t('Sefer sayısı')}</th><th>${t('Taşınan yolcu')}</th><th>${t('Kişi (serviste)')}</th></tr>${lines.map(L => { const x = C.line[L.id] || { trips: 0, pass: 0 }; return `<tr><td>${h(lname(L))}</td><td>${x.trips}</td><td>${x.pass}</td><td>${S.persons.filter(p => p.lineId === L.id && personInService(p)).length}</td></tr>`; }).join('')}</table>`;
+      if (CM) body += `<div class="sec">${t('Araç bazında')}</div><table><tr><th>${t('Araç')}</th><th>${t('Sefer / gün')}</th><th>${t('Hakediş')}</th><th>${t('Yakıt')}</th><th>${t('Bakım')}</th><th>${t('Toplam')}</th></tr>${(S.vehicles || []).map(v => { const V = C.veh[v.id]; if (!V || !(V.trips || V.pay || V.fuel || V.maint)) return ''; return `<tr><td dir="auto">${h(v.plate)}</td><td>${V.trips} / ${V.days.size}</td><td>${money(V.pay)}</td><td>${money(V.fuel)}</td><td>${money(V.maint)}</td><td>${money(V.pay + V.fuel + V.maint)}</td></tr>`; }).join('')}</table>`;
+      const al = VM ? docAlerts() : []; if (al.length) body += `<div class="sec">${t('Uyarılar')}</div><table><tr><th>${t('Kayıt')}</th><th>${t('Tür')}</th><th>${t('Durum')}</th></tr>${al.map(x => `<tr><td dir="auto">${h(x.name)}</td><td>${t(x.doc)}</td><td>${x.km != null ? Math.abs(x.km) + ' ' + (x.km < 0 ? t('km geçti') : t('km kaldı')) : (x.days < 0 ? t('süresi geçti') : t('{0} gün kaldı', x.days)) + (x.date ? ' (' + fmt(x.date) + ')' : '')}</td></tr>`).join('')}</table>`;
       return body;
     }
     if (type === 'vehicles') {

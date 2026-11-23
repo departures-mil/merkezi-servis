@@ -28,3 +28,8 @@ Yeni sürüm yayınlamak için:
 - **Güvenlik:** kullanıcılar ve yetkiler (yönetici/operatör/görüntüleme), işlem geçmişi, günlük otomatik yedek (IndexedDB, 30 gün), çöp kutusu.
 - **Görünüm:** koyu tema, kurum rengi, açılış ekranı, Ctrl+K hızlı arama ve klavye kısayolları.
 - **Yeni raporlar:** şoför durak listesi, sefer/araç listesi, yoklama-devamsızlık, aylık özet, araç belge durumu, bakım-yakıt, hakediş, QR personel kartları.
+
+## v1.0.10 – modüler sistem
+Ayarlar → **Modüller**: Seferler & Yoklama, Araçlar, Maliyet (Araçlar'a bağlı), Ana Hatlar & Harita, Şoförler, Kayıtlar açılıp kapatılabilir.
+Kapalı modül menüden, Genel Durum panelinden, raporlardan, hızlı aramadan ve formlardan kalkar; verisi silinmez.
+Ayar `settings.modules` içinde tutulur (`false` = kapalı). Yalnızca yönetici değiştirebilir.

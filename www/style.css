@@ -358,3 +358,19 @@ html.dark .mname{fill:#e5e7eb;stroke:#111827}
 .toast.err{color:#fff}
 body.ro #main [data-att],body.ro #main #tCopy,body.ro #main #tAdd{display:none!important}
 body.ro #main [data-f],body.ro #main [data-smin],body.ro #main [data-pst],body.ro #main [data-dst]{pointer-events:none;opacity:.75}
+/* modüller */
+.mods{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mod{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--card);transition:border-color .15s,background .15s}
+.mod:hover{border-color:#c9bd92}
+.mod input{display:none}
+.mod .mi{font-size:22px}
+.mod .mt{flex:1;display:flex;flex-direction:column;gap:2px}
+.mod .mt small{color:var(--muted);font-size:11.5px;line-height:1.3}
+.mod .sw{width:38px;height:22px;border-radius:11px;background:#d1d5db;position:relative;flex-shrink:0;transition:background .15s}
+.mod .sw::after{content:'';position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:inset-inline-start .15s}
+.mod input:checked~.sw{background:var(--accent)}
+.mod input:checked~.sw::after{inset-inline-start:19px}
+.mod:not(.on){opacity:.7}
+.mod input:disabled~.sw{opacity:.5}
+html.dark .mod .sw{background:#4b5563}
+@media (max-width:1100px){.mods{grid-template-columns:1fr}}
