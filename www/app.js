@@ -1,6 +1,6 @@
 /* Merkezi Servis – uygulama mantığı (tarayıcı + Electron) */
 'use strict';
-const APP_VERSION = '1.0.9';
+const APP_VERSION = '1.0.10';
 const PRO = () => window.Pro || null;
 const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/departures-mil/merkezi-servis/main/';
 const EXEMPT_DEFAULT = ['حلب', 'جرابلس', 'دركوش', 'تل رفعت', 'سرمدا', 'حارم', 'جنديرس', 'Halep', 'Cerablus', 'Derkuş', 'Tel Rıfat', 'Sermede', 'Harim', 'Cinderes'];
@@ -400,7 +400,7 @@ function renderDash(m) {
   const team = driverTeamAt(d0); const nextDates = upcomingChangeDates(6);
   m.innerHTML = `
   <h1>${t('Genel Durum')} <span class="muted small">— ${fmt(d0)} ${dayName(d0)}</span></h1>
-  ${S.settings.mapHidden ? `<p><button class="btn sm" id="mshow">🗺️ ${t('Haritayı göster')}</button></p>` : '<div class="card tight" id="mapCard"></div>'}
+  ${PRO() && !PRO().mod('mainlines') ? '' : S.settings.mapHidden ? `<p><button class="btn sm" id="mshow">🗺️ ${t('Haritayı göster')}</button></p>` : '<div class="card tight" id="mapCard"></div>'}
   <div class="card"><h2>${t('Şu an kim nerede')}</h2><div class="grid c4">
     ${[...workPlaces().map(w => [w.id, '🏭 ' + shortWork(w)]), ['home', '🏠 ' + t('Evde')], ['transit', '🚌 ' + t('Serviste (yolda)')]].map(([k, lb]) => { const n = inService.filter(p => personLocationAt(p, d0) === k).length; return `<a class="stat locstat" data-loc="${k}"><div class="v">${n}</div><div class="l">${lb}</div></a>`; }).join('')}
   </div></div>
@@ -417,10 +417,10 @@ function renderDash(m) {
       </table>
       <p class="small muted">${t('Değişim tarihlerini')} <a href="#" data-go="shifts">${t('Vardiya & Değişim')}</a> ${t('sayfasından girin.')}</p>
     </div>
-    <div class="card"><h2>${t('Şoförler – bugün')}</h2>
+    ${PRO() && !PRO().mod('drivers') ? '' : `<div class="card"><h2>${t('Şoförler – bugün')}</h2>
       ${S.drivers.map(d => `<div class="drv ${driverActiveAt(d, d0) ? 'on' : 'off'}"><span class="nm" dir="auto">${h(d.name)}</span>${driverStatusSel(d)}<span class="small muted">${t('Ekip')} ${d.team}</span></div>`).join('')}
       <div class="small muted">${t('Sonraki şoför değişimi')}: <b>${driverNextChange() ? fmt(driverNextChange()) : t('tarih girilmedi')}</b></div>
-    </div>
+    </div>`}
   </div>
   <div class="grid c2">
     <div class="card"><h2>${t('Yaklaşan değişim günleri')}</h2>
@@ -434,7 +434,8 @@ function renderDash(m) {
     </div>
   </div>`;
   if (PRO()) PRO().dash(m);
-  if (S.settings.mapHidden) { $('#mshow', m).onclick = () => { S.settings.mapHidden = false; save(); render(); }; }
+  if (PRO() && !PRO().mod('mainlines')) { /* harita modülü kapalı */ }
+  else if (S.settings.mapHidden) { $('#mshow', m).onclick = () => { S.settings.mapHidden = false; save(); render(); }; }
   else mountMap($('#mapCard', m));
   $$('[data-go]', m).forEach(a => a.onclick = e => { e.preventDefault(); go(a.dataset.go); });
   bindDriverStatus(m);
@@ -453,7 +454,7 @@ function renderPersons(m) {
     <select id="ps"><option value="">${t('Tüm durumlar')}</option><option value="service" ${pf.status === 'service' ? 'selected' : ''}>${t('Servise dahil')}</option><option value="exempt" ${pf.status === 'exempt' ? 'selected' : ''}>${t('Muaf')}</option><option value="inactive" ${pf.status === 'inactive' ? 'selected' : ''}>${t('Sistemden çıkarılmış')}</option>${workPlaces().map(w => `<option value="loc-${w.id}" ${pf.status === 'loc-' + w.id ? 'selected' : ''}>${t('Bugün')}: ${h(shortWork(w))}</option>`).join('')}<option value="st-home" ${pf.status === 'st-home' ? 'selected' : ''}>${t('Bugün')}: ${t('Evde')}</option><option value="st-transit" ${pf.status === 'st-transit' ? 'selected' : ''}>${t('Bugün')}: ${t('Serviste (yolda)')}</option><option value="st-man" ${pf.status === 'st-man' ? 'selected' : ''}>${t('Elle değiştirilenler')}</option></select>
     ${pf.place ? `<span class="pill">${t('Yer')}: <span dir="auto">${h(placeName(pf.place))}</span><button id="pplx">✕</button></span>` : ''}
     <span style="flex:1"></span>
-    <button class="btn" id="pQr">▦ ${t('QR kartlar')}</button>
+    ${PRO() && !PRO().mod('trips') ? '' : `<button class="btn" id="pQr">▦ ${t('QR kartlar')}</button>`}
     <button class="btn" id="pImport">${t("Excel'den al")}</button>
     <button class="btn" id="pExport">${t("Excel'e ver")}</button>
     <button class="btn primary" id="pAdd">+ ${t('Kişi ekle')}</button>
@@ -500,7 +501,7 @@ function renderPersons(m) {
   $('#pAdd').onclick = () => editPerson(null);
   $('#pExport').onclick = () => exportPersonsExcel();
   $('#pImport').onclick = () => importPersonsExcel();
-  $('#pQr').onclick = () => printReport('qrcards', { lineId: pf.line, lhId: S.settings.defaultLetterheadId });
+  if ($('#pQr')) $('#pQr').onclick = () => printReport('qrcards', { lineId: pf.line, lhId: S.settings.defaultLetterheadId });
 }
 function locOptions(p, d) {
   const ov = overrideValue(p, d); const g = groupById(p.group); const gst = g ? groupStatusAt(g, d) : '';
@@ -739,7 +740,7 @@ function editDriver(id) {
   <label class="f">${t('Ekip')}<select id="d_team"><option value="1" ${d.team === 1 ? 'selected' : ''}>${t('Ekip')} 1</option><option value="2" ${d.team === 2 ? 'selected' : ''}>${t('Ekip')} 2</option></select></label>
   <label class="f">${t('İşe başlama tarihi')}<input type="date" id="d_start" value="${h(d.startDate)}"></label><label class="f">${t('İşten ayrılış tarihi')}<input type="date" id="d_end" value="${h(d.endDate)}"></label>
   <label class="f">${t('Ehliyet sınıfı')}<input id="d_lcls" value="${h(d.licenseClass || '')}"></label><label class="f">${t('Ehliyet bitişi')}<input type="date" id="d_lend" value="${h(d.licenseEnd || '')}"></label>
-  <label class="f">${t('Atandığı hat')}<select id="d_line">${opt(S.lines, d.lineId || '', x => lname(x), x => x.id, '—')}</select></label><label class="f">${t('Atandığı araç')}<select id="d_veh">${opt(S.vehicles || [], d.vehicleId || '', x => x.plate, x => x.id, '—')}</select></label>
+  <label class="f">${t('Atandığı hat')}<select id="d_line">${opt(S.lines, d.lineId || '', x => lname(x), x => x.id, '—')}</select></label><label class="f" ${PRO() && !PRO().mod('vehicles') ? 'style="display:none"' : ''}>${t('Atandığı araç')}<select id="d_veh">${opt(S.vehicles || [], d.vehicleId || '', x => x.plate, x => x.id, '—')}</select></label>
   <label class="f">${t('Not')}<input id="d_notes" dir="auto" value="${h(d.notes)}"></label></div>
   <div class="actions">${id ? `<button class="btn danger" id="d_del">${t('Sil')}</button>` : ''}<span style="flex:1"></span>${cancelBtn()}<button class="btn primary" id="d_save">${t('Kaydet')}</button></div>`, (r, close) => {
     $('#d_save', r).onclick = () => { Object.assign(d, { name: $('#d_name', r).value.trim() || t('Şoför'), phone: $('#d_phone', r).value.trim(), team: +$('#d_team', r).value, startDate: $('#d_start', r).value, endDate: $('#d_end', r).value, notes: $('#d_notes', r).value.trim(), licenseClass: $('#d_lcls', r).value.trim(), licenseEnd: $('#d_lend', r).value, lineId: $('#d_line', r).value, vehicleId: $('#d_veh', r).value }); if (!id) S.drivers.push(d); const vv = (S.vehicles || []).find(x => x.id === d.vehicleId); if (vv && !vv.driverId) vv.driverId = d.id; save(); close(); render(); };
@@ -759,7 +760,7 @@ function renderPlan(m) {
     <select id="pquick"><option value="">${t('Yaklaşan değişimler…')}</option>${upcoming.map(d => `<option value="${d}">${fmt(d)} ${dayName(d)} — ${changesOn(d).map(g => g.name).join(', ')}</option>`).join('')}</select>
     <span style="flex:1"></span><button class="btn" id="pXls">${t("Excel'e ver")}</button><button class="btn primary" id="pPrint">🖨️ ${t('Yazdır')}</button></div>
   ${P.groups.length ? `<p>${t('Bu tarihte değişen gruplar')}: ${P.groups.map(g => `<span class="badge ${groupPrevStatus(g, planDate) === 'work' ? 'ok' : 'gray'}">${h(g.name)}: ${groupPrevStatus(g, planDate) === 'work' ? t('işten eve') : t('evden işe')}</span>`).join(' ')}</p>` : `<p class="badge warn">${t('Bu tarihte değişim yok. Vardiya sayfasından değişim tarihlerini kontrol edin.')}</p>`}
-  <p class="small muted">${t('Şoför')}: ${t('Ekip')} ${driverTeamAt(planDate)} ${t('görevde')}. ${t('Otobüs işyerinden çıkar, eve dönenleri duraklara bırakır ve aynı duraklardan işe gidenleri alır.')} ${t('Araç ve şoför atamaları Seferler sayfasından yapılır.')} <a href="#" id="toTrips">🚍 ${t('Seferleri aç')}</a></p>
+  <p class="small muted">${t('Şoför')}: ${t('Ekip')} ${driverTeamAt(planDate)} ${t('görevde')}. ${t('Otobüs işyerinden çıkar, eve dönenleri duraklara bırakır ve aynı duraklardan işe gidenleri alır.')} ${PRO() && !PRO().mod('trips') ? '' : `${t('Araç ve şoför atamaları Seferler sayfasından yapılır.')} <a href="#" id="toTrips">🚍 ${t('Seferleri aç')}</a>`}</p>
   ${P.lines.map(pl => planLineHtml(pl)).join('')}`;
   $('#pdate').onchange = e => { planDate = e.target.value; render(); };
   $('#pquick').onchange = e => { if (e.target.value) { planDate = e.target.value; render(); } };
@@ -789,7 +790,7 @@ const REPORT_TYPES = [['plan', 'Sefer planı (değişim günü)'], ['persons', '
 function renderReports(m) {
   m.innerHTML = `<h1>${t('Çıktılar')}</h1>
   <div class="card"><div class="grid c3">
-    <label class="f">${t('Rapor')}<select id="rtype">${REPORT_TYPES.map(([v, l]) => `<option value="${v}">${t(l)}</option>`).join('')}</select></label>
+    <label class="f">${t('Rapor')}<select id="rtype">${REPORT_TYPES.filter(([v]) => !PRO() || PRO().reportAllowed(v)).map(([v, l]) => `<option value="${v}">${t(l)}</option>`).join('')}</select></label>
     <label class="f">${t('Antet')}<select id="rlh">${opt(S.letterheads, S.settings.defaultLetterheadId)}</select></label>
     <label class="f">${t('Tarih')}<input type="date" id="rdate" value="${planDate || upcomingChangeDates(1)[0] || todayISO()}"></label>
     <label class="f">${t('Hat')}<select id="rline">${opt(S.lines, '', x => lname(x), x => x.id, t('Tüm hatlar'))}</select></label>
