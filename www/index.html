@@ -8,11 +8,14 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="splash" class="splash"><div class="sp-box"><img src="assets/logo.png" alt=""><b>Merkezi Servis</b><span class="sp-spin"></span></div></div>
+<script>try{var _s=JSON.parse(localStorage.getItem('merkezi-servis-state')||'null');if(_s&&_s.settings){if(_s.settings.theme==='dark'||(_s.settings.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');if(_s.settings.splash===false)document.getElementById('splash').remove();}}catch(e){}</script>
 <div id="lock" class="lock hidden">
   <div class="lock-box">
     <img src="assets/logo.png" alt="">
     <h2>Merkezi Servis</h2>
     <p id="lockTitle">İdareci şifresi</p>
+    <select id="lockUser" class="hidden"></select>
     <input id="lockPin" type="password" autocomplete="off">
     <button class="btn primary" id="lockBtn">Giriş</button>
     <div id="lockErr" class="err"></div>
@@ -47,6 +50,8 @@
 <script src="i18n.js"></script>
 <script src="vendor/leaflet.js"></script>
 <script src="map.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="pro.js"></script>
 <script src="app.js"></script>
 <script>window.ADMIN_ILETISIM={app:'Merkezi Servis',send:(window.electronAPI&&window.electronAPI.sendContact)?function(m){return window.electronAPI.sendContact(m)}:null,version:function(){return typeof APP_VERSION!=='undefined'?APP_VERSION:''},lang:function(){return document.documentElement.lang},anchor:function(){var b=document.getElementById('bkExp');return b?b.closest('.card').parentElement:null},cls:{card:'card',btn:'btn primary',muted:'small muted'}};</script>
 <script src="admin-iletisim.js"></script>
