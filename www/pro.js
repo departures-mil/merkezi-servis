@@ -442,7 +442,7 @@
       const draw = () => {
         const q = $('#x_q', r).value.toLowerCase(), lid = $('#x_line', r).value, only = $('#x_lineOnly', r).checked;
         const list = S.persons.filter(p => p.active !== false && (!only || p.lineId === lid || chosen.has(p.id)) && (!q || (p.name + ' ' + (p.nickname || '') + ' ' + (p.regNo || '') + ' ' + placeName(p.homeId)).toLowerCase().includes(q))).sort((a, b) => sortTR(a.name, b.name)).slice(0, 300);
-        $('#x_tbl', r).innerHTML = list.map(p => `<tr><td><input type="checkbox" data-pp="${p.id}" ${chosen.has(p.id) ? 'checked' : ''}></td><td dir="auto">${h(p.name)}</td><td>${h(p.regNo)}</td><td>${h(p.group)}</td><td dir="auto" class="muted">${h(placeName(p.homeId))}</td></tr>`).join('') || `<tr><td class="muted">${t('Sonuç yok')}</td></tr>`;
+        $('#x_tbl', r).innerHTML = list.map(p => `<tr><td><input type="checkbox" data-pp="${p.id}" ${chosen.has(p.id) ? 'checked' : ''}></td><td dir="auto">${h(p.name)}</td><td>${h(p.regNo)}</td><td>${h(gName(p.group))}</td><td dir="auto" class="muted">${h(placeName(p.homeId))}</td></tr>`).join('') || `<tr><td class="muted">${t('Sonuç yok')}</td></tr>`;
         $$('[data-pp]', r).forEach(c => c.onchange = () => { if (c.checked) chosen.add(c.dataset.pp); else chosen.delete(c.dataset.pp); $('#x_cnt', r).textContent = chosen.size + ' ' + t('seçili'); });
         $('#x_cnt', r).textContent = chosen.size + ' ' + t('seçili');
       };
@@ -467,7 +467,7 @@
     modal(`<h2>✔ ${t('Yoklama')} — ${h(lineName(tr.lineId))} <span class="small muted">${fmt(tr.date)} · ${slotLbl(tr.slot)}${tr.time ? ' ' + h(tr.time) : ''}</span></h2>
       <div class="scan"><label class="f">${t('QR / sicil okut')}<input id="a_scan" autocomplete="off" placeholder="MS:…"></label><span class="small muted">${t("Okuyucu ile okutun veya sicil no yazıp Enter'a basın")}</span></div>
       <div class="row" style="margin:8px 0"><span id="a_cnt" class="att-cnt"></span><span style="flex:1"></span><button class="btn sm" id="a_all">✔ ${t('Hepsi bindi')}</button><button class="btn sm" id="a_clr">${t('Hepsini temizle')}</button></div>
-      <div class="att-list">${rows.length ? order.map(sid => `<div class="att-stop"><div class="hd" dir="auto">${h(placeName(sid))}</div>${byStop[sid].map(r => `<div class="att-row" data-pid="${r.p.id}"><span class="nm" dir="auto">${r.dir === 'toHome' ? '🏠' : '🏭'} ${h(r.p.name)} <span class="small muted">${h(r.p.regNo || '')} · ${h(r.p.group || '')}</span></span><button class="att-b in" data-v="1">✔ ${t('Bindi')}</button><button class="att-b out" data-v="0">✕ ${t('Gelmedi')}</button></div>`).join('')}</div>`).join('') : `<p class="muted">${t('Yolcu yok')}</p>`}</div>
+      <div class="att-list">${rows.length ? order.map(sid => `<div class="att-stop"><div class="hd" dir="auto">${h(placeName(sid))}</div>${byStop[sid].map(r => `<div class="att-row" data-pid="${r.p.id}"><span class="nm" dir="auto">${r.dir === 'toHome' ? '🏠' : '🏭'} ${h(r.p.name)} <span class="small muted">${h(r.p.regNo || '')} · ${h(gName(r.p.group))}</span></span><button class="att-b in" data-v="1">✔ ${t('Bindi')}</button><button class="att-b out" data-v="0">✕ ${t('Gelmedi')}</button></div>`).join('')}</div>`).join('') : `<p class="muted">${t('Yolcu yok')}</p>`}</div>
       <div class="actions"><button class="btn primary" data-close>${t('Kapat')}</button></div>`, (r) => {
       const att = () => (S.attendance[tr.id] = S.attendance[tr.id] || {});
       const paint = () => {
@@ -978,7 +978,7 @@
       body = head(t('Yoklama / devamsızlık raporu'), `${fmt(a)} – ${fmt(b)}${o.lineId ? ' · ' + lineName(o.lineId) : ''}`);
       if (!st.tripRows.length) return body + `<p>${t('Yoklama kaydı yok')}</p>`;
       body += `<div class="sec">${t('Sefer bazında yoklama')}</div><table><tr><th>${t('Tarih')}</th><th>${t('Hat')}</th><th>${t('Sefer')}</th><th>${t('Yolcu')}</th><th>${t('Bindi')}</th><th>${t('Gelmedi')}</th><th>${t('İşaretlenmedi')}</th></tr>${st.tripRows.map(x => `<tr><td>${fmt(x.tr.date)}</td><td>${h(lineName(x.tr.lineId))}</td><td>${x.tr.kind === 'change' ? t('Değişim') : t('Ek sefer')} · ${slotLbl(x.tr.slot)}</td><td>${x.total}</td><td>${x.y}</td><td>${x.n}</td><td>${x.total - x.y - x.n}</td></tr>`).join('')}</table>`;
-      body += `<div class="sec">${t('Kişi bazında devamsızlık')}</div><table><tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Grup')}</th><th>${t('Hat')}</th><th>${t('Bindi sayısı')}</th><th>${t('Gelmedi sayısı')}</th><th>${t('Devamsızlık oranı')}</th><th>${t('Tarih')}</th></tr>${st.per.filter(x => x.no || !o.onlyAbsent).map((x, i) => `<tr><td>${i + 1}</td><td>${h(x.p.regNo)}</td><td dir="auto">${h(x.p.name)}</td><td>${h(x.p.group)}</td><td>${h(lineName(x.p.lineId))}</td><td>${x.yes}</td><td>${x.no}</td><td>${x.yes + x.no ? Math.round(x.no / (x.yes + x.no) * 100) + '%' : '—'}</td><td class="small">${x.dates.map(fmt).join(', ')}</td></tr>`).join('')}</table>`;
+      body += `<div class="sec">${t('Kişi bazında devamsızlık')}</div><table><tr><th>#</th><th>${t('Sicil')}</th><th>${t('Ad Soyad')}</th><th>${t('Grup')}</th><th>${t('Hat')}</th><th>${t('Bindi sayısı')}</th><th>${t('Gelmedi sayısı')}</th><th>${t('Devamsızlık oranı')}</th><th>${t('Tarih')}</th></tr>${st.per.filter(x => x.no || !o.onlyAbsent).map((x, i) => `<tr><td>${i + 1}</td><td>${h(x.p.regNo)}</td><td dir="auto">${h(x.p.name)}</td><td>${h(gName(x.p.group))}</td><td>${h(lineName(x.p.lineId))}</td><td>${x.yes}</td><td>${x.no}</td><td>${x.yes + x.no ? Math.round(x.no / (x.yes + x.no) * 100) + '%' : '—'}</td><td class="small">${x.dates.map(fmt).join(', ')}</td></tr>`).join('')}</table>`;
       return body;
     }
     if (type === 'monthly') {
@@ -1028,7 +1028,7 @@
     if (type === 'trips' || type === 'driverStops') {
       const trs = tripsOn(date).filter(tripFilter(o));
       sheets.push([t('Seferler'), [[t('Hat'), t('Sefer'), t('Vakit'), t('Kalkış'), t('Araç'), t('Şoför'), t('Yolcu'), t('Kapasite'), t('Durum')], ...trs.map(tr => { const c = tripCheck(tr); return [lineName(tr.lineId), tr.kind === 'change' ? t('Değişim') : t('Ek sefer'), slotLbl(tr.slot), tr.time || '', vehName(tr.vehicleId) + (tr.vehicle2Id ? ' + ' + vehName(tr.vehicle2Id) : ''), drvName(tr.driverId) + (tr.driver2Id ? ' + ' + drvName(tr.driver2Id) : ''), c.rows.length, c.cap || '', t({ planned: 'Planlandı', done: 'Tamamlandı', cancelled: 'İptal' }[tr.status || 'planned'])]; })]]);
-      trs.forEach(tr => { const att = S.attendance[tr.id] || {}; sheets.push([lineName(tr.lineId) + ' ' + (tr.kind === 'change' ? '' : slotLbl(tr.slot)), [[t('Durak'), t('Ad Soyad'), t('Sicil'), t('Grup'), t('Yön'), t('Yoklama')], ...tripPassengers(tr).map(r => [placeName(r.stopId), r.p.name, r.p.regNo, r.p.group, r.dir === 'toHome' ? t('Eve dönüş') : t('İşe gidiş'), att[r.p.id] === 1 ? t('Bindi') : att[r.p.id] === 0 ? t('Gelmedi') : ''])]]); });
+      trs.forEach(tr => { const att = S.attendance[tr.id] || {}; sheets.push([lineName(tr.lineId) + ' ' + (tr.kind === 'change' ? '' : slotLbl(tr.slot)), [[t('Durak'), t('Ad Soyad'), t('Sicil'), t('Grup'), t('Yön'), t('Yoklama')], ...tripPassengers(tr).map(r => [placeName(r.stopId), r.p.name, r.p.regNo, gName(r.p.group), r.dir === 'toHome' ? t('Eve dönüş') : t('İşe gidiş'), att[r.p.id] === 1 ? t('Bindi') : att[r.p.id] === 0 ? t('Gelmedi') : ''])]]); });
       if (!trs.length) return toast(t('Bu tarihte sefer yok'), true), true;
       saveBlob('seferler-' + date + '.xlsx', xlsxFromSheets(sheets)); return true;
     }
@@ -1052,7 +1052,7 @@
     }
     if (type === 'attendance') {
       const [a, b] = rangeOf(o); const st = attStats(a, b, o);
-      sheets.push([t('Kişi bazında devamsızlık'), [[t('Sicil'), t('Ad Soyad'), t('Grup'), t('Hat'), t('Bindi sayısı'), t('Gelmedi sayısı'), t('Devamsızlık oranı'), t('Tarih')], ...st.per.map(x => [x.p.regNo, x.p.name, x.p.group, lineName(x.p.lineId), x.yes, x.no, x.yes + x.no ? Math.round(x.no / (x.yes + x.no) * 100) + '%' : '', x.dates.join(', ')])]]);
+      sheets.push([t('Kişi bazında devamsızlık'), [[t('Sicil'), t('Ad Soyad'), t('Grup'), t('Hat'), t('Bindi sayısı'), t('Gelmedi sayısı'), t('Devamsızlık oranı'), t('Tarih')], ...st.per.map(x => [x.p.regNo, x.p.name, gName(x.p.group), lineName(x.p.lineId), x.yes, x.no, x.yes + x.no ? Math.round(x.no / (x.yes + x.no) * 100) + '%' : '', x.dates.join(', ')])]]);
       sheets.push([t('Sefer bazında yoklama'), [[t('Tarih'), t('Hat'), t('Sefer'), t('Yolcu'), t('Bindi'), t('Gelmedi')], ...st.tripRows.map(x => [x.tr.date, lineName(x.tr.lineId), x.tr.kind === 'change' ? t('Değişim') : t('Ek sefer'), x.total, x.y, x.n])]]);
       saveBlob('yoklama-' + a + '.xlsx', xlsxFromSheets(sheets)); return true;
     }

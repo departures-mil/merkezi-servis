@@ -187,7 +187,7 @@ function mountMap(container, opts) {
     pop.innerHTML = `<div class="row between"><b dir="auto">${h(p.name)}</b><button class="btn sm" id="popX">✕</button></div>
       <div class="small muted">${p.type === 'work' ? t('İşyeri') : t('Ev')} · ${Ls.map(Lx => h(lname(Lx))).join(', ') || t('hatta bağlı değil')}${placeExempt(p) && p.type !== 'work' ? ' · <span class="badge warn">' + t('muaf yer') + '</span>' : ''}</div>
       <div class="kv" style="margin:6px 0"><b>${t('Serviste')}</b><span>${ins.length} (${t('işte')} ${atWork} / ${t('evde')} ${ins.length - atWork})</span><b>${t('Muaf / pasif')}</b><span>${ps.length - ins.length}</span></div>
-      <div class="pill-list">${ins.slice(0, 12).map(q => `<span class="pill" data-pp="${q.id}" title="${t('Düzenle')}"><span dir="auto">${h(q.name)}</span><span class="muted">${h(q.group)}</span></span>`).join('')}${ins.length > 12 ? `<span class="pill">+${ins.length - 12}</span>` : ''}</div>
+      <div class="pill-list">${ins.slice(0, 12).map(q => `<span class="pill" data-pp="${q.id}" title="${t('Düzenle')}"><span dir="auto">${h(q.name)}</span><span class="muted">${h(gName(q.group))}</span></span>`).join('')}${ins.length > 12 ? `<span class="pill">+${ins.length - 12}</span>` : ''}</div>
       <div class="row" style="margin-top:8px;gap:6px">
         <button class="btn sm primary" id="popAdd">+ ${t('Kişi ekle')}</button>
         <button class="btn sm" id="popList">${t('Kişileri gör')}</button>
