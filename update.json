@@ -1,6 +1,6 @@
 {
-  "version": "1.8.10",
-  "notes": "«Admin ile iletişime geç» düzeltildi: mesajlarınız artık yöneticiye güvenilir biçimde ulaşıyor. Kayıtlarınız olduğu gibi kalır.",
+  "version": "1.8.11",
+  "notes": "Büyük güncelleme: Seferler & Yoklama (araç/şoför atama, kapasite uyarısı, QR ile yoklama), Araçlar (belge uyarıları, bakım, yakıt), Maliyet ve taşeron hakediş, kullanıcılar ve yetkiler, işlem geçmişi, otomatik günlük yedek, çöp kutusu, koyu tema, hızlı arama (Ctrl+K) ve yeni raporlar. Kayıtlarınız olduğu gibi kalır.",
   "files": [
     "www/index.html",
     "www/app.js",
@@ -12,13 +12,15 @@
     "www/vendor/leaflet.css",
     "www/admin-iletisim.js",
     "www/duyuru.js",
-    "www/kullanim.js"
+    "www/kullanim.js",
+    "www/pro.js",
+    "www/vendor/qrcode.js"
   ],
-  "display": "1.0.8",
+  "display": "1.0.9",
   "sizes": {
-    "www/index.html": 2562,
-    "www/app.js": 104198,
-    "www/style.css": 17671,
+    "www/index.html": 3192,
+    "www/app.js": 109342,
+    "www/style.css": 25020,
     "www/geo.js": 4815,
     "www/i18n.js": 44342,
     "www/map.js": 25845,
@@ -26,6 +28,8 @@
     "www/vendor/leaflet.css": 14806,
     "www/admin-iletisim.js": 8594,
     "www/duyuru.js": 9186,
-    "www/kullanim.js": 21684
+    "www/kullanim.js": 21684,
+    "www/pro.js": 127655,
+    "www/vendor/qrcode.js": 56694
   }
 }
