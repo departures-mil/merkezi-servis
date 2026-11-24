@@ -312,3 +312,6 @@ body.ro #main [data-f],body.ro #main [data-smin],body.ro #main [data-pst],body.r
 .btn.ghost{background:transparent;border-color:transparent;padding:1px 5px;opacity:.7}.btn.ghost:hover{opacity:1}
 div.gq,.row.gq{display:flex;flex-wrap:wrap;gap:4px}div.gq{min-width:220px}
 .gsel .pill{cursor:pointer;gap:6px}
+/* 1.2.2: kurum adı (kullanıcı verisi, Latin ya da Arapça) RTL'de baştan kesilmesin — yön metnin kendisinden */
+.brand-tag{unicode-bidi:plaintext}
+html[dir=rtl] .brand-tag{text-align:right}

@@ -25,6 +25,7 @@ const shots = [
   { name: 'tr-falcon-dark-ayarlar', lang: 'tr', theme: 'dark', scheme: 'falcon', page: 'settings' },
   { name: 'ar-falcon-light-ayarlar', lang: 'ar', theme: 'light', scheme: 'falcon', page: 'settings' },
   { name: 'tr-falcon-dark-kisiler', lang: 'tr', theme: 'dark', scheme: 'falcon', page: 'persons' },
+  { name: 'ar-falcon-light-kisiler', lang: 'ar', theme: 'light', scheme: 'falcon', page: 'persons' },
   { name: 'tr-eski-kabuk-kopru', lang: 'tr', theme: 'dark', scheme: 'falcon', legacy: true }
 ];
 (async () => {
@@ -38,7 +39,7 @@ const shots = [
     page.on('console', (m) => { if (m.type() === 'error' && !/ERR_FAILED|net::/.test(m.text())) errors.push(s.name + ' console: ' + m.text()); });
     await page.addInitScript(({ s, data }) => {
       const set = (k, v) => localStorage.setItem('fc.' + k, JSON.stringify(v));
-      set('lang', s.lang); set('theme', s.theme); set('scheme', s.scheme); set('onboarding.done', true); set('whatsnew.seen', '1.1.0');
+      set('lang', s.lang); set('theme', s.theme); set('scheme', s.scheme); set('onboarding.done', true); set('whatsnew.seen', s.ver || '9.9.9');
       const json = JSON.stringify(Object.assign(data, { settings: Object.assign(data.settings, { lang: s.lang }) }));
       if (s.legacy) {   // ≤1.0.11 kabuğu: fcHost yok, eski electronAPI var
         window.electronAPI = { loadData: async () => json, saveData: async () => true, dataPath: async () => 'C:\\Users\\x\\AppData\\Roaming\\Merkezi Servis\\merkezi-servis-data.json', checkUpdate: async () => ({}), applyUpdate: async () => ({}), relaunch: async () => {}, print: async () => {}, saveFile: async () => null, openFile: async () => null };
@@ -47,7 +48,7 @@ const shots = [
       const st = { fullscreen: true, half: false }, cbs = [];
       window.fcHost = { kind: 'electron', platform: 'win32', version: '1.1.0', window: { minimize: async () => {}, half: async () => {}, toggleFullscreen: async () => {}, close: async () => {}, getState: async () => st, onState: (f) => { cbs.push(f); return () => {}; } }, update: { channel: 'win-app', applyPatch: async () => 'restarting', installFull: async () => 'restarting' } };
       window.electronAPI = { shell: 'fc', loadData: async () => json, saveData: async () => true, dataPath: async () => 'C:\\Users\\x\\AppData\\Roaming\\Merkezi Servis\\merkezi-servis-data.json', saveFile: async () => null, openFile: async () => null, appInfo: async () => ({ version: '1.1.0' }), relaunch: async () => {}, print: async () => {} };
-    }, { s, data: sample() });
+    }, { s: Object.assign({ ver: require('../package.json').version }, s), data: sample() });
     await page.goto(URL0);
     await page.waitForTimeout(1500);
     if (s.page) { await page.evaluate((p) => go(p), s.page); await page.waitForTimeout(700); }
