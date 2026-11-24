@@ -1,6 +1,7 @@
 # Merkezi Servis — test → Windows derlemesi (NSIS kurulum + app.asar) → GitHub Release (ortak çekirdek, delta yamalar).
 # Yayın: package.json sürümünü değiştirin (node tools/surum.js X.Y.Z), main'e birleştirin, `git tag vX.Y.Z && git push --tags`.
-# workflow_dispatch: test + derleme her dalda denenebilir; release yalnız v* etiketinde yapılır.
+# Ya da Actions → release → "Run workflow" (main): etiket v<package.json sürümü> release ile birlikte oluşturulur.
+# Entegrasyon dallarında (ortak-cekirdek-*) yalnız test + derleme çalışır.
 name: release
 on:
   push:
@@ -63,7 +64,7 @@ jobs:
 
   release:
     needs: [test, build]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     permissions:
       contents: write
     uses: departures-mil/ortak-cekirdek/.github/workflows/reusable-release.yml@main
