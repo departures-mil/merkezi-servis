@@ -21,7 +21,7 @@ const ALLOWED_HOSTS = /^(github\.com|objects\.githubusercontent\.com|release-ass
 
 function windowOptions(extra) {
   const o = Object.assign({ show: false, fullscreen: true, frame: false, backgroundColor: '#070b14', autoHideMenuBar: true }, extra || {});
-  o.webPreferences = Object.assign({ contextIsolation: true, nodeIntegration: false, sandbox: true }, (extra && extra.webPreferences) || {});
+  o.webPreferences = Object.assign({ contextIsolation: true, nodeIntegration: false, sandbox: false }, (extra && extra.webPreferences) || {});
   return o;
 }
 
@@ -79,6 +79,25 @@ function cleanup(o, delayMs) {
 }
 
 /* ---------- pencere ---------- */
+/* ---------- kurulum kanalı (win-setup) ----------
+   updater.plan minVersion/setupChannel ile 'win-setup' kanalını seçtiğinde
+   installFull kurulum exe'sini getirir; çekirdek bunu app.asar.next olarak yazıp takas ediyordu (program bozulurdu).
+   Burada exe SHA-256 ile doğrulanır, geçici klasöre yazılır, ayrık süreç olarak açılır ve program kapanır. */
+function isSetup(meta) { return !!(meta && (/setup/i.test(String(meta.channel || '')) || /\.exe$/i.test(String(meta.file || '')))); }
+function runSetup(buf, meta) {
+  if (process.platform !== 'win32') throw err('SETUP_WINDOWS_ONLY');
+  if (!meta || !meta.targetSha256 || sha(buf) !== String(meta.targetSha256).toLowerCase()) throw err('BAD_HASH');
+  if (meta.targetSize && buf.length !== +meta.targetSize) throw err('BAD_SIZE');
+  const name = String(meta.file || 'setup.exe').replace(/[^\w.-]/g, '_');
+  const dir = path.join(os.tmpdir(), 'fc-setup-' + process.pid); ofs.mkdirSync(dir, { recursive: true });
+  const exe = path.join(dir, /\.exe$/i.test(name) ? name : name + '.exe');
+  ofs.writeFileSync(exe, buf);
+  if (sha(ofs.readFileSync(exe)) !== sha(buf)) throw err('STAGE_VERIFY');
+  spawn(exe, [], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
+  setTimeout(() => app.exit(0), 400);
+  return 'restarting';
+}
+
 function install(win, opts) {
   const o = Object.assign({ channel: 'win-app' }, opts || {});
   const applyDelta = o.applyDelta || applyFcd1;
@@ -116,7 +135,11 @@ function install(win, opts) {
     const st = stage(o, out, meta);
     swapAndRelaunch(o, st); return 'restarting';
   }));
-  handle('fc:update:full', result((_e, bytes, meta) => { const st = stage(o, Buffer.from(bytes), meta); swapAndRelaunch(o, st); return 'restarting'; }));
+  handle('fc:update:full', result((_e, bytes, meta) => {
+    // Kurulum kanalı (win-setup: NSIS exe) app.asar'ın yerine YAZILMAZ; doğrulanıp çalıştırılır.
+    if (isSetup(meta)) return runSetup(Buffer.from(bytes), meta);
+    const st = stage(o, Buffer.from(bytes), meta); swapAndRelaunch(o, st); return 'restarting';
+  }));
   handle('fc:net:download', async (e, id, url) => {
     const u = new URL(String(url));
     if (u.protocol !== 'https:' || !ALLOWED_HOSTS.test(u.hostname)) throw err('URL_NOT_ALLOWED');
@@ -131,6 +154,12 @@ function install(win, opts) {
     e.sender.send('fc:net:progress', id, n, true);
     return new Uint8Array(Buffer.concat(parts, n));
   });
+  /* Asistan Agent: aynı bilgisayardaki uygulamalar sayaçlarını ortak klasörde paylaşır (yalnız sayılar, içerik yok) */
+  const agentDir = () => path.join(app.getPath('appData'), 'FalconCekirdek', 'agent');
+  const agentFile = (k) => path.join(agentDir(), String(k).replace(/[^\w@.-]/g, '_').slice(0, 120) + '.json');
+  handle('fc:agent:write', result((_e, key, json) => { const s = String(json); if (s.length > 2e6) throw err('TOO_BIG'); JSON.parse(s); ofs.mkdirSync(agentDir(), { recursive: true }); const f = agentFile(key); ofs.writeFileSync(f + '.tmp', s); ofs.renameSync(f + '.tmp', f); return true; }));
+  handle('fc:agent:read', result(() => { const out = {}; let names = []; try { names = ofs.readdirSync(agentDir()); } catch (e) { return out; } names.filter((n) => n.endsWith('.json')).slice(0, 200).forEach((n) => { try { out[n.slice(0, -5)] = ofs.readFileSync(path.join(agentDir(), n), 'utf8'); } catch (e) {} }); return out; }));
+  handle('fc:agent:remove', result((_e, key) => { try { ofs.unlinkSync(agentFile(key)); } catch (e) {} return true; }));
   ipcMain.removeAllListeners('fc:info');
   ipcMain.on('fc:info', (e) => { e.returnValue = { version: app.getVersion(), name: app.getName(), platform: process.platform, channel: o.channel }; });
 
