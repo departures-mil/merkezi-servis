@@ -1,7 +1,7 @@
 {
-  "version": "2.2.3",
-  "display": "1.2.3",
-  "notes": "Merkezi Servis 1.2.3 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\nGüncellemeler artık tamamen kendiliğinden: yeni sürüm arka planda sessizce indirilir, program kapanınca pencere açmadan kurulur; bir sonraki açılışta yeni sürüm gelir. Hemen kurmak için Güncelle → «Şimdi kur ve yeniden aç». Kurulum gereken güncellemeler de sessiz yapılır. Kayıtlara dokunulmaz.",
+  "version": "2.2.4",
+  "display": "1.2.4",
+  "notes": "Merkezi Servis 1.2.4 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\nEski sürümlerden bu sürüme geçiş bir kez tam kurulumla yapılır (eski güncelleyicideki siyah pencere sorunu yaşanmaz). Sonraki güncellemeler yine arka planda, kendiliğinden. Kayıtlar korunur.",
   "files": [
     "www/app.js",
     "www/assets/icon.png",
