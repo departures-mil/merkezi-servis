@@ -1,15 +1,21 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="tr" dir="ltr" data-scheme="falcon">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>Merkezi Servis</title>
+<script>/* görünümü ilk boyamadan önce uygula (yanıp sönmesin) */try{var g=function(k){try{return JSON.parse(localStorage.getItem('fc.'+k))}catch(e){return null}},d=document.documentElement,th=g('theme'),sc=g('scheme'),l=g('lang');if(sc)d.setAttribute('data-scheme',sc);if(th==='light'||(th==='auto'&&matchMedia('(prefers-color-scheme: light)').matches))d.classList.add('theme-light');if(l){d.lang=l;d.dir=l==='ar'?'rtl':'ltr'}}catch(e){}</script>
+<link rel="stylesheet" href="cekirdek/css/tokens.css">
+<link rel="stylesheet" href="cekirdek/css/core.css">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="style.css">
+<script src="cekirdek/fc-core.js"></script>
+<script src="surum.js"></script>
 </head>
 <body>
 <div id="splash" class="splash"><div class="sp-box"><img src="assets/logo.png" alt=""><b>Merkezi Servis</b><span class="sp-spin"></span></div></div>
-<script>try{var _s=JSON.parse(localStorage.getItem('merkezi-servis-state')||'null');if(_s&&_s.settings){if(_s.settings.theme==='dark'||(_s.settings.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');if(_s.settings.splash===false)document.getElementById('splash').remove();}}catch(e){}</script>
+<script>try{var _s=JSON.parse(localStorage.getItem('merkezi-servis-state')||'null');if(_s&&_s.settings&&_s.settings.splash===false)document.getElementById('splash').remove();}catch(e){}</script>
 <div id="lock" class="lock hidden">
   <div class="lock-box">
     <img src="assets/logo.png" alt="">
@@ -23,22 +29,25 @@
 </div>
 
 <div id="appShell" class="shell">
-  <aside class="side">
+  <aside class="sidebar side">
     <div class="brand">
-      <img src="assets/logo.png" alt="">
-      <div><b>Merkezi Servis</b><small id="brandSub">Servis Yönetimi</small></div>
+      <img class="brand-img" src="assets/logo.png" alt="">
+      <div class="brand-text"><div class="brand-name">Merkezi Servis</div><div class="brand-tag" id="brandSub">Servis Yönetimi</div></div>
+      <span class="version-badge" id="verBadge"></span>
     </div>
-    <nav id="nav"></nav>
+    <nav id="nav" class="nav"></nav>
     <div class="side-foot">
-      <select id="langSel" class="lang"></select>
-      <div id="verInfo">v—</div>
-      <div id="saveInfo" class="muted">Kaydedildi</div>
+      <div id="saveInfo" class="muted"></div>
     </div>
   </aside>
-  <div class="mainwrap">
-    <div id="topbar" class="topbar"></div>
-    <main id="main" class="main"></main>
+  <div class="main mainwrap">
+    <header id="topbar" class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Menü"></button>
+      <div class="topbar-title"><h1 class="page-title" id="pageTitle"></h1><p class="page-sub" id="pageSub"><span class="org"></span><span id="saveInfoTop" class="tb-save"></span></p></div>
+    </header>
+    <main id="main" class="content"></main>
   </div>
+  <div class="drawer-backdrop" id="drawerBack"></div>
 </div>
 
 <div id="modalRoot"></div>
@@ -51,14 +60,9 @@
 <script src="vendor/leaflet.js"></script>
 <script src="map.js"></script>
 <script src="vendor/qrcode.js"></script>
+<script src="kabuk.js"></script>
 <script src="pro.js"></script>
 <script src="app.js"></script>
 <script src="gruplar.js"></script>
-<script>window.ADMIN_ILETISIM={app:'Merkezi Servis',send:(window.electronAPI&&window.electronAPI.sendContact)?function(m){return window.electronAPI.sendContact(m)}:null,version:function(){return typeof APP_VERSION!=='undefined'?APP_VERSION:''},lang:function(){return document.documentElement.lang},anchor:function(){var b=document.getElementById('bkExp');return b?b.closest('.card').parentElement:null},cls:{card:'card',btn:'btn primary',muted:'small muted'}};</script>
-<script src="admin-iletisim.js"></script>
-<script src="duyuru.js"></script>
-<script>Duyuru.baslat({uygulama:'merkezi-servis',surum:(typeof APP_VERSION!=='undefined'?APP_VERSION:'0'),dil:function(){return document.documentElement.lang},guncelle:function(){try{autoUpdate(true)}catch(e){}}});</script>
-<script src="kullanim.js"></script>
-<script>Kullanim.baslat({uygulama:'merkezi-servis',bulut:false,ai:false,sinif:'card',dil:function(){return document.documentElement.lang}});Kullanim.yerlestir(function(){return document.getElementById('admin-iletisim')},true);</script>
 </body>
 </html>

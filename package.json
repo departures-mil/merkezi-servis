@@ -1,14 +1,18 @@
 {
   "name": "merkezi-servis",
   "productName": "Merkezi Servis",
-  "version": "1.0.11",
+  "version": "1.1.0",
   "description": "Merkezi Servis Hizmeti yönetim uygulaması",
   "main": "main.js",
   "author": "departures-mil",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win"
+    "surum": "node tools/surum.js",
+    "eski-kanal": "node tools/eski-kanal.js",
+    "test": "node --test test/app.test.js test/electron-smoke.test.js",
+    "test:electron": "node --test test/electron-smoke.test.js",
+    "dist": "electron-builder --win nsis --publish never"
   },
   "build": {
     "appId": "com.merkeziservis.app",
@@ -19,20 +23,48 @@
     "files": [
       "main.js",
       "preload.js",
-      "www/**/*"
+      "package.json",
+      "cekirdek/**/*",
+      "www/**/*",
+      "!www/seed.json"
     ],
+    "asar": true,
     "win": {
       "target": [
-        "zip"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
+      "icon": "build/icon.ico",
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Merkezi Servis",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "tr_TR",
+        "en_US",
+        "ar_SA"
+      ],
+      "language": "1055",
+      "artifactName": "MerkeziServis-Setup-${version}.${ext}"
     }
   },
   "devDependencies": {
     "electron": "^33.4.11",
-    "electron-builder": "^25.1.8"
-  },
-  "dependencies": {
+    "electron-builder": "^25.1.8",
     "leaflet": "^1.9.4"
   }
 }

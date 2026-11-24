@@ -7,18 +7,24 @@ Fabrika personel servisi yönetim uygulaması (Windows masaüstü, Electron).
     npm start
 
 ## Windows paketi
-    npm run dist        → dist/ içinde zip
+    npm run dist        → dist/MerkeziServis-Setup-X.Y.Z.exe (NSIS, kullanıcı başına %LOCALAPPDATA%\Programs) + win-unpacked/resources/app.asar
 
-## Güncelleme sistemi
-Uygulama, **Ayarlar → Güncelleme** bölümündeki adresten `update.json` dosyasını okur.
-Sürüm yeniyse `files` listesindeki dosyaları indirir, `%APPDATA%/merkezi-servis/app-update/www`
-altına yazar ve yeniden başlar. Kişi verileri `%APPDATA%/merkezi-servis/merkezi-servis-data.json`
-dosyasındadır; güncellemeden etkilenmez.
+## Ortak çekirdek (1.1.0+)
+Görünüm, sağ üst düğmeler, tam ekran açılış, güncelleme, Admin ile iletişim, çökme raporu, duyurular, ilk açılış
+rehberi ve "neler yeni" `departures-mil/ortak-cekirdek`'ten gelir: `www/cekirdek/` (arayüz) ve `cekirdek/electron/`
+(ana süreç). Hangi commit'ten alındığı `cekirdek/VERSION`'da. Uygulamaya özgü kabuk kodu: `www/kabuk.js`.
 
-Yeni sürüm yayınlamak için:
-    node bump.js "Değişiklik notu yerine sürüm verilmezse 1.0.x otomatik artar"
-    git add -A && git commit -m "v1.0.1" && git push
+## Sürüm ve yayın
+Tek sürüm: `package.json` (semver). Değiştirmek için `node tools/surum.js 1.2.0`, notlar `release-notes.json` (tr/en/ar).
+Yayın: main'e birleştir → `git tag v1.2.0 && git push origin v1.2.0` → `.github/workflows/release.yml`
+(test → Windows derleme → GitHub Release: setup exe, app.asar, delta yamalar, latest.json). Program tek tuşla günceller.
 
+## Eski kurulumlar (≤1.0.11) için köprü
+Eski sürümler yalnız `update.json` (raw, main dalı) kanalını bilir ve yalnız `www/` dosyalarını değiştirir.
+`npm test` update.json'un www/ ile tutarlı olduğunu denetler; www/ değişince `node tools/eski-kanal.js` çalıştırın.
+Yeni sürüm Release'te yayınlandıktan SONRA `node tools/eski-kanal.js --yayinla` + main'e push: eski kurulumlar yeni
+arayüzü alır, arayüz eski kabukta olduğunu anlar ve kurulum dosyasını indirmeye yönlendirir (veriler aynı klasörde kalır).
+Kişi verileri `%APPDATA%\Merkezi Servis\merkezi-servis-data.json` (+ .bak) dosyasındadır; güncelleme dokunmaz.
 `www/seed.json` (personel başlangıç verisi) depoya gönderilmez.
 
 ## v1.0.9 – profesyonel modül (`www/pro.js`)

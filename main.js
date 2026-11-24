@@ -1,82 +1,85 @@
 // Merkezi Servis – Electron ana süreç
-const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
+// Pencere, tam ekran açılış, sağ üst pencere düğmeleri, GitHub Releases güncellemesi (yama + tam dosya) ve ana süreç
+// hata raporu ortak çekirdekten gelir (cekirdek/electron/fc-electron-main.js). Burada yalnız uygulamaya özgü IPC kalır.
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const fc = require('./cekirdek/electron/fc-electron-main');
 
-const BUNDLED_WWW = path.join(__dirname, 'www');
-const UPDATE_DIR = () => path.join(app.getPath('userData'), 'app-update');
-const UPDATE_WWW = () => path.join(UPDATE_DIR(), 'www');
+const WWW = path.join(__dirname, 'www');
+// Kullanıcı verisi: %APPDATA%\Merkezi Servis\merkezi-servis-data.json (eski sürümlerle aynı yer; güncelleme dokunmaz)
 const DATA_FILE = () => path.join(app.getPath('userData'), 'merkezi-servis-data.json');
 
-function readVersion(dir) {
-  try { return JSON.parse(fs.readFileSync(path.join(dir, 'version.json'), 'utf8')).version || '0.0.0'; }
-  catch (e) { return '0.0.0'; }
-}
-function cmpVer(a, b) {
-  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
-  const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0); }
-  return 0;
-}
-// Güncellenmiş kopya bundled sürümden yeniyse onu, değilse bundled'ı kullan
-function activeWww() {
-  const upd = UPDATE_WWW();
-  if (fs.existsSync(path.join(upd, 'index.html')) && cmpVer(readVersion(upd), readVersion(BUNDLED_WWW)) > 0) return upd;
-  return BUNDLED_WWW;
-}
+// Tek kopya: ikinci açılış mevcut pencereyi öne getirir (iki pencerenin aynı veri dosyasına yazması önlenir)
+const gotLock = !!process.env.MS_SMOKE || app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+else app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
 
-// Chromium ağı (sistem proxy/VPN ayarlarını kullanır); raw.githubusercontent erişilemezse jsDelivr yedeği
-const MIRRORS = base => {
-  const m = base.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\//);
-  return m ? [base, `https://cdn.jsdelivr.net/gh/${m[1]}/${m[2]}@${m[3]}/`] : [base];
-};
-async function fetchOne(url, onChunk) {
-  const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 60000);
-  try {
-    const r = await net.fetch(url, { signal: ctrl.signal, cache: 'no-store', headers: { 'User-Agent': 'MerkeziServis' } });
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' – ' + url);
-    if (!onChunk || !r.body) return Buffer.from(await r.arrayBuffer());
-    const reader = r.body.getReader(); const parts = []; let got = 0;
-    for (;;) {
-      const { done, value } = await reader.read(); if (done) break;
-      parts.push(Buffer.from(value)); got += value.length; onChunk(value.length, got);
-    }
-    return Buffer.concat(parts);
-  } finally { clearTimeout(tm); }
-}
-let workingBase = null;
-async function fetchFrom(base, rel, onChunk) {
-  const list = workingBase && MIRRORS(base).includes(workingBase) ? [workingBase, ...MIRRORS(base).filter(x => x !== workingBase)] : MIRRORS(base);
-  let lastErr;
-  for (const b of list) {
-    let got = 0;
-    try { const buf = await fetchOne(b + rel + (b.includes('jsdelivr') ? '' : (rel.includes('?') ? '&' : '?') + 't=' + Date.now()), onChunk && ((n, g) => { got = g; onChunk(n); })); workingBase = b; return buf; }
-    catch (e) { lastErr = e; if (onChunk && got) onChunk(-got); }
-  }
-  throw lastErr;
-}
 let win;
 function createWindow() {
-  win = new BrowserWindow({
-    width: 1380, height: 860, minWidth: 1000, minHeight: 640,
+  win = new BrowserWindow(fc.windowOptions({
+    minWidth: 900, minHeight: 600,
     title: 'Merkezi Servis',
-    icon: path.join(BUNDLED_WWW, 'assets', 'icon.png'),
-    autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
+    backgroundColor: '#070b14',
+    icon: path.join(WWW, 'assets', 'icon.png'),
+    // sandbox:false → preload ortak çekirdeğin fc-preload.js'ini require edebilir (contextIsolation açık kalır)
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), sandbox: false }
+  }));
+  fc.install(win, { channel: 'win-app' });
+  win.loadFile(path.join(WWW, 'index.html'));
+  win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//i.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:')) { e.preventDefault(); if (/^https:\/\//i.test(url)) shell.openExternal(url); } });
+  if (process.env.MS_SMOKE) smoke();
+}
+
+// Electron açılış testi (npm run test:electron): pencere yüklendi mi, çekirdek başladı mı?
+function smoke() {
+  const out = (o) => { process.stdout.write('MS_SMOKE ' + JSON.stringify(o) + '\n'); };
+  const consoleErrors = [];
+  win.webContents.on('console-message', (e, level, message) => { if (level >= 3) consoleErrors.push(String(message).slice(0, 300)); });
+  const fail = setTimeout(() => { out({ ok: false, error: 'timeout' }); app.exit(2); }, 45000);
+  win.webContents.on('did-finish-load', () => {
+    setTimeout(async () => {
+      try {
+        const r = await win.webContents.executeJavaScript(`({
+          fc: !!(window.FC && FC.updater && FC.topbar), host: window.FC && FC.host.kind, fcHost: !!window.fcHost, api: !!window.electronAPI,
+          version: window.APP_RELEASE && APP_RELEASE.version, scheme: document.documentElement.dataset.scheme,
+          topbar: !!document.querySelector('#topbar .topbar-actions'), winBtns: document.querySelectorAll('#topbar .win-controls button').length,
+          nav: document.querySelectorAll('#nav .nav-item').length, title: document.title, errors: (window.__msErrors || []).slice(0, 5)
+        })`);
+        r.fullscreen = win.isFullScreen(); r.appVersion = app.getVersion(); r.errors = r.errors.concat(consoleErrors.filter((m) => !/net::|Failed to load resource|ERR_/.test(m)));
+        clearTimeout(fail);
+        out(Object.assign({ ok: r.fc && r.host === 'electron' && r.topbar && r.nav > 0 && !r.errors.length }, r));
+        app.exit(0);
+      } catch (e) { out({ ok: false, error: String(e && e.message || e) }); app.exit(3); }
+    }, 2500);
   });
-  win.loadFile(path.join(activeWww(), 'index.html'));
-  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
 }
 
 app.whenReady().then(() => {
+  if (!gotLock) return;
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 // ---- Veri dosyası (localStorage'a ek olarak diske de yazılır) ----
-ipcMain.handle('data:load', () => { try { return fs.readFileSync(DATA_FILE(), 'utf8'); } catch (e) { return null; } });
-ipcMain.handle('data:save', (e, json) => { try { fs.writeFileSync(DATA_FILE(), json, 'utf8'); return true; } catch (err) { return false; } });
+// Yazma atomiktir: önce .tmp, sonra yeniden adlandırma; önceki dosya .bak olarak kalır (veri asla yarım yazılmaz).
+ipcMain.handle('data:load', () => {
+  for (const f of [DATA_FILE(), DATA_FILE() + '.bak']) { try { const s = fs.readFileSync(f, 'utf8'); JSON.parse(s); return s; } catch (e) { /* sıradaki */ } }
+  return null;
+});
+ipcMain.handle('data:save', (e, json) => {
+  try {
+    JSON.parse(json);
+    const f = DATA_FILE(), tmp = f + '.tmp';
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(tmp, json, 'utf8');
+    if (fs.existsSync(f)) { try { fs.copyFileSync(f, f + '.bak'); } catch (err) { /* önemli değil */ } }
+    fs.renameSync(tmp, f);
+    return true;
+  } catch (err) { return false; }
+});
 ipcMain.handle('data:path', () => DATA_FILE());
 
 // ---- Dosya kaydetme (Excel / yedek) ----
@@ -91,79 +94,6 @@ ipcMain.handle('file:open', async (e, { filters }) => {
   if (r.canceled || !r.filePaths[0]) return null;
   return { name: path.basename(r.filePaths[0]), dataBase64: fs.readFileSync(r.filePaths[0]).toString('base64') };
 });
-ipcMain.handle('app:info', () => ({
-  bundledVersion: readVersion(BUNDLED_WWW), activeVersion: readVersion(activeWww()),
-  updatedCopy: activeWww() !== BUNDLED_WWW, userData: app.getPath('userData')
-}));
-
-// ---- Güncelleme: GitHub raw üzerinden ----
-ipcMain.handle('update:check', async (e, baseUrl) => {
-  const base = baseUrl.replace(/\/?$/, '/');
-  const manifest = JSON.parse((await fetchFrom(base, 'update.json')).toString('utf8'));
-  const current = readVersion(activeWww());
-  return { current, remote: manifest.version, available: cmpVer(manifest.version, current) > 0, notes: manifest.notes || '', files: manifest.files || [] };
-});
-ipcMain.handle('update:apply', async (e, baseUrl) => {
-  const base = baseUrl.replace(/\/?$/, '/');
-  const manifest = JSON.parse((await fetchFrom(base, 'update.json')).toString('utf8'));
-  const files = manifest.files || [];
-  if (!files.length) throw new Error('Manifest dosya listesi boş');
-  const tmp = path.join(UPDATE_DIR(), 'tmp-' + Date.now());
-  fs.mkdirSync(tmp, { recursive: true });
-  // İlerleme bildirimi: indirilen / toplam bayt (toplam manifestteki "sizes" alanından)
-  const sizes = manifest.sizes || {};
-  const total = files.reduce((a, f) => a + (sizes[f] || 0), 0);
-  let done = 0, lastSent = 0;
-  const send = (force) => { const now = Date.now(); if (!force && now - lastSent < 120) return; lastSent = now; try { e.sender.send('update:progress', { done, total, version: manifest.display || manifest.version }); } catch (_) { } };
-  send(true);
-  for (const f of files) {
-    const buf = await fetchFrom(base, f, n => { done += n; send(false); });
-    const dest = path.join(tmp, f);
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.writeFileSync(dest, buf);
-  }
-  send(true);
-  fs.writeFileSync(path.join(tmp, 'www', 'version.json'), JSON.stringify({ version: manifest.version, display: manifest.display }), 'utf8');
-  // Güncellemede gelmeyen dosyaları (seed.json, kütüphaneler, resimler) paketten tamamla
-  const copyMissing = (src, dst) => {
-    for (const name of fs.readdirSync(src)) {
-      const s = path.join(src, name), d = path.join(dst, name);
-      if (fs.statSync(s).isDirectory()) { fs.mkdirSync(d, { recursive: true }); copyMissing(s, d); }
-      else if (!fs.existsSync(d)) fs.copyFileSync(s, d);
-    }
-  };
-  copyMissing(BUNDLED_WWW, path.join(tmp, 'www'));
-  // Eski güncellemeyi değiştir
-  const target = UPDATE_WWW();
-  if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
-  fs.renameSync(path.join(tmp, 'www'), target);
-  fs.rmSync(tmp, { recursive: true, force: true });
-  return { version: manifest.version };
-});
-ipcMain.handle('update:reset', () => { const t = UPDATE_WWW(); if (fs.existsSync(t)) fs.rmSync(t, { recursive: true, force: true }); return true; });
+ipcMain.handle('app:info', () => ({ version: app.getVersion(), userData: app.getPath('userData'), packaged: app.isPackaged }));
 ipcMain.handle('app:relaunch', () => { app.relaunch(); app.exit(0); });
-// admin ile iletişim — FormSubmit, Referer/Origin başlığı olmayan isteği reddeder; mesaj ana süreçten gider
-// Yöneticiye mesaj: iki bağımsız kanal, biri kabul ederse ulaşmış sayılır.
-//  1) Yöneticinin mesaj kutusu (Firestore "mesajlar", yalnızca ekleme; okuma yok) — her ağdan, etkinleştirme gerektirmez
-//  2) E-posta kopyası (FormSubmit) — Referer'sız isteği reddeder; etkinleştirilmiş site Referer olarak gönderilir
-const __adminSend = async (m) => {
-  const msg = String((m && m.message) || '').slice(0, 5000).trim();
-  if (!msg) return { ok: false, error: 'empty' };
-  const name = String(m.name || '').slice(0, 80).trim(), mail = String(m.email || '').slice(0, 120).trim(), ver = String(m.version || app.getVersion());
-  const F = (v) => ({ stringValue: String(v || '').slice(0, 4000) });
-  const fields = { mesaj: F(msg), konu: F('Merkezi Servis · ' + String(m.topic || 'Mesaj')), dil: F(m.lang), surum: F(ver), platform: F('Merkezi Servis · Windows'), zaman: { timestampValue: new Date().toISOString() } };
-  if (name) fields.ad = F(name);
-  if (mail) fields.iletisim = F(mail);
-  const to = Buffer.from('', 'base64').toString().split('').reverse().join('');
-  const body = { _subject: 'Merkezi Servis: yeni mesaj', _template: 'table', _captcha: 'false', Ad: name || '-', Mesaj: msg, Surum: ver, Cihaz: 'Windows', Dil: String(m.lang || '') };
-  if (mail) { body.email = mail; body._replyto = mail; }
-  const inbox = fetch('https://firestore.googleapis.com/v1/projects/comm-calc-103111111/databases/(default)/documents/mesajlar?key=AIzaSyB12RFS6ENPpmnnPsETfjedNH-3hmNWQvA',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }), signal: AbortSignal.timeout(20000) }).then((r) => r.ok, () => false);
-  const email = fetch('https://formsubmit.co/ajax/' + to, { method: 'POST', signal: AbortSignal.timeout(20000),
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', Referer: 'https://formsubmit.co/', Origin: 'https://formsubmit.co', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-    body: JSON.stringify(body) }).then((r) => r.json().catch(() => ({}))).then((j) => String(j.success) === 'true', () => false);
-  const [a, b] = await Promise.all([inbox, email]);
-  return a || b ? { ok: true } : { ok: false, error: 'network' };
-};
-ipcMain.handle('contact:send', (e, m) => __adminSend(m));
 ipcMain.handle('app:print', () => win.webContents.print({ silent: false, printBackground: true }));
