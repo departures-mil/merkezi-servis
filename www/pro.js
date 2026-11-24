@@ -806,8 +806,7 @@
     const s = S.settings; const fxv = fx();
     const users = (S.users || []);
     return modulesCard() + `
-    <div class="card"><h2>🎨 ${t('Görünüm')}</h2><div class="grid c3">
-      <label class="f">${t('Tema')}<select id="s_theme"><option value="light" ${s.theme === 'light' ? 'selected' : ''}>${t('Açık')}</option><option value="dark" ${s.theme === 'dark' ? 'selected' : ''}>${t('Koyu')}</option><option value="auto" ${s.theme === 'auto' ? 'selected' : ''}>${t('Sisteme göre')}</option></select></label>
+    <div class="card"><h2>🎨 ${t('Kurum rengi ve açılış')}</h2><p class="small muted">${t('Renk şeması, koyu/açık mod ve yazı boyutu Görünüm kartındadır. Kurum rengi seçilirse şemanın vurgu rengini geçersiz kılar.')}</p><div class="grid c2">
       <label class="f">${t('Kurum rengi')}<div class="row" style="gap:6px"><input type="color" id="s_accent" value="${h(s.accent || '#8a7a4e')}" style="height:34px;width:60px"><button class="btn sm" id="s_accReset">${t('Varsayılan renk')}</button></div></label>
       <label class="chk" style="margin-top:18px"><input type="checkbox" id="s_splash" ${s.splash === false ? '' : 'checked'}> ${t('Açılış ekranı')}</label></div></div>
     ${modOn('costs') ? `<div class="card"><h2>💱 ${t('Kur ayarları')}</h2><div class="grid c3">
@@ -825,7 +824,6 @@
   }
   P.bindSettings = function (m) {
     const s = S.settings;
-    $('#s_theme', m).onchange = e => { s.theme = e.target.value; save(); P.applyTheme(); };
     $('#s_accent', m).onchange = e => { s.accent = e.target.value; save(); P.applyTheme(); };
     $('#s_accReset', m).onclick = () => { delete s.accent; save(); P.applyTheme(); render(); };
     $('#s_splash', m).onchange = e => { s.splash = e.target.checked; save(); };
@@ -870,13 +868,12 @@
 
   // ================= tema & açılış =================
   function shade(hex, f) { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return hex; const n = parseInt(m[1], 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(x => Math.max(0, Math.min(255, Math.round(x * f)))); return '#' + c.map(x => x.toString(16).padStart(2, '0')).join(''); }
+  // Koyu/açık mod ve renk şeması artık ortak çekirdekte (FC.look). Burada yalnız isteğe bağlı kurum rengi kalır.
   P.applyTheme = function () {
     const s = (hasS() && S.settings) || {}; const de = document.documentElement;
-    const dark = s.theme === 'dark' || (s.theme === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-    de.classList.toggle('dark', !!dark);
-    if (s.accent) { de.style.setProperty('--accent', s.accent); de.style.setProperty('--accent-d', shade(s.accent, .8)); } else { de.style.removeProperty('--accent'); de.style.removeProperty('--accent-d'); }
+    if (s.accent) { de.style.setProperty('--accent', s.accent); de.style.setProperty('--accent-d', shade(s.accent, .8)); de.style.setProperty('--primary-1', s.accent); de.style.setProperty('--primary-2', shade(s.accent, .8)); }
+    else { ['--accent', '--accent-d', '--primary-1', '--primary-2'].forEach(k => de.style.removeProperty(k)); }
   };
-  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => P.applyTheme()); } catch (e) { }
   const splashT0 = Date.now();
   P.hideSplash = function () { const sp = document.getElementById('splash'); if (!sp) return; const wait = (hasS() && S.settings && S.settings.splash === false) ? 0 : Math.max(0, 700 - (Date.now() - splashT0)); setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 400); }, wait); };
 

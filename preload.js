@@ -1,16 +1,16 @@
+// Merkezi Servis – preload. window.fcHost (ortak çekirdek: pencere düğmeleri, güncelleme) + window.electronAPI (uygulama verisi).
+// Güncelleme ve "Admin ile iletişim" artık ortak çekirdekte; eski update:* / contact:send kanalları kaldırıldı.
 const { contextBridge, ipcRenderer } = require('electron');
+require('./cekirdek/electron/fc-preload.js');
+
 contextBridge.exposeInMainWorld('electronAPI', {
+  shell: 'fc',                       // yeni kabuk (eski kabukta bu alan yok → arayüz köprü kipine geçer)
   loadData: () => ipcRenderer.invoke('data:load'),
   saveData: (json) => ipcRenderer.invoke('data:save', json),
   dataPath: () => ipcRenderer.invoke('data:path'),
   saveFile: (opts) => ipcRenderer.invoke('file:save', opts),
   openFile: (opts) => ipcRenderer.invoke('file:open', opts),
   appInfo: () => ipcRenderer.invoke('app:info'),
-  checkUpdate: (url) => ipcRenderer.invoke('update:check', url),
-  applyUpdate: (url) => ipcRenderer.invoke('update:apply', url),
-  onUpdateProgress: (cb) => { const fn = (e, d) => cb(d); ipcRenderer.on('update:progress', fn); return () => ipcRenderer.removeListener('update:progress', fn); },
-  resetUpdate: () => ipcRenderer.invoke('update:reset'),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
-  print: () => ipcRenderer.invoke('app:print'),
-  sendContact: (m) => ipcRenderer.invoke('contact:send', m)
+  print: () => ipcRenderer.invoke('app:print')
 });
