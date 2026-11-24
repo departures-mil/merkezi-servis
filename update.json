@@ -1,7 +1,7 @@
 {
-  "version": "1.8.13",
-  "display": "1.0.11",
-  "notes": "Gruplar: tek tuşla Ev / Kadısiye / Hama'ya taşıma (toplu seçimle de), grup adını ✎ ile değiştirme (aynı ad engellenir), 10 günde bir otomatik Ev ↔ İş rotasyonu (duraklat, şimdi değiştir, grubu sabitle), grup işlem geçmişi ve geri al.",
+  "version": "2.1.0",
+  "display": "1.1.0",
+  "notes": "Merkezi Servis 1.1.0 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\n- Yeni görünüm (Falcon Ofis) ve Ayarlar → Görünüm'de renk şeması seçici; eski renkler \"Klasik\" şemasında\n- Program her açılışta tam ekran açılır; sağ üstte Küçült, Orta, Tam ekran, Kapat, Güncelle ve Eşitle düğmeleri\n- Tek tuşla güncelleme GitHub Releases'tan: yalnızca değişen kısımlar indirilir, SHA-256 ile doğrulanır; yüzde, MB, kalan MB ve hız gösterilir\n- Artık kurulum programıyla (Setup) gelir; verileriniz aynı yerde kalır\n- Yazı boyutu (A− / A+), Arapça için sağdan sola düzen ve yeni yazı tipleri\n- Otomatik hata raporu (kapatılabilir), ilk açılış rehberi ve \"Neler yeni\" penceresi\n- Sürüm numarası tek: 1.1.0",
   "files": [
     "www/app.js",
     "www/assets/icon.png",
