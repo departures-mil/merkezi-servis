@@ -1,7 +1,7 @@
 {
-  "version": "2.2.2",
-  "display": "1.2.2",
-  "notes": "Merkezi Servis 1.2.2 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\n- Arapça: maliyet grafiğinde ay adları doğru (حزيران, تشرين ١ / تشرين ٢; önceden ilk 3 harf)\n- Arapça: kenar çubuğundaki kurum adı baştan kesilmiyor",
+  "version": "2.2.3",
+  "display": "1.2.3",
+  "notes": "Merkezi Servis 1.2.3 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\nGüncellemeler artık tamamen kendiliğinden: yeni sürüm arka planda sessizce indirilir, program kapanınca pencere açmadan kurulur; bir sonraki açılışta yeni sürüm gelir. Hemen kurmak için Güncelle → «Şimdi kur ve yeniden aç». Kurulum gereken güncellemeler de sessiz yapılır. Kayıtlara dokunulmaz.",
   "files": [
     "www/app.js",
     "www/assets/icon.png",
