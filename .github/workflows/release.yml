@@ -5,6 +5,7 @@ name: release
 on:
   push:
     tags: ['v*']
+    branches: ['ortak-cekirdek-*']   # entegrasyon dalları: yalnız test + derleme (release yok)
   workflow_dispatch:
 
 permissions:
