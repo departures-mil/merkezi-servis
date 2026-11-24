@@ -668,7 +668,9 @@
     return `<svg viewBox="0 0 ${w} ${hgt + 34}" class="bchart" role="img">${data.map(([lb, v], i) => { const bh = Math.round(v / max * hgt); const x = 10 + i * bw + bw * .18; return `<rect x="${x}" y="${hgt - bh + 14}" width="${bw * .64}" height="${Math.max(bh, 1)}" rx="4" class="bar"></rect><text x="${x + bw * .32}" y="${hgt - bh + 9}" class="bv">${v ? money(v).replace(/[.,]00(?=\s)/, '') : ''}</text><text x="${x + bw * .32}" y="${hgt + 30}" class="bl">${h(lb)}</text>`; }).join('')}</svg>`;
   }
   P.barChart = barChart;
-  function lastMonths(n) { const cur = monthOf(todayISO()); const out = []; for (let i = n - 1; i >= 0; i--) { const ym = addMonths(cur, -i); out.push([monthLbl(ym).split(' ')[0].slice(0, 3), costsFor(ym).total]); } return out; }
+  // 1.2.2: Arapçada ay adının ilk 3 harfi anlamsızdı ("حزي", iki ayrı "تشر") → tam ad, iki kelimeliler kısa (تشرين ١ / تشرين ٢)
+  function monthShortAr(ym) { try { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('ar-SY', { month: 'short' }).replace(' الأول', ' ١').replace(' الثاني', ' ٢'); } catch (e) { return ym; } }
+  function lastMonths(n) { const cur = monthOf(todayISO()); const out = []; for (let i = n - 1; i >= 0; i--) { const ym = addMonths(cur, -i); out.push([LANG === 'ar' ? monthShortAr(ym) : monthLbl(ym).split(' ')[0].slice(0, 3), costsFor(ym).total]); } return out; }
   let costYm = '';
   function renderCosts(m) {
     if (!costYm) costYm = monthOf(todayISO());

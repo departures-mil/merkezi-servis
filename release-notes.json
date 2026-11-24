@@ -4,7 +4,7 @@
     "en": "New: ✦ Assistant Agent — follows your work across all your programs and suggests how to work more effectively (notifications + ✦ panel in the top bar). Can be turned on/off in Settings.",
     "ar": "جديد: ✦ الوكيل المساعد — يتابع عملك في جميع برامجك ويقترح طرقاً للعمل بكفاءة أكبر (إشعارات + لوحة ✦ في الشريط العلوي). يمكن تشغيله أو إيقافه من الإعدادات."
   },
-  "tr": "- Güncelleme kararlılığı düzeltmesi: kurulum dosyası artık program dosyasının üstüne yazılmaz; doğrulanıp çalıştırılır\n- Program simgesi: masaüstü ve görev çubuğunda Merkezi Servis'in kendi simgesi görünür\n- 1.2.0: ✦ Asistan Agent (Ayarlar'dan açılıp kapatılabilir)",
-  "en": "- Update reliability fix: the installer is no longer written over the program file; it is verified and run\n- Program icon: Merkezi Servis's own icon now appears on the desktop and taskbar\n- 1.2.0: ✦ Assistant Agent (can be turned on/off in Settings)",
-  "ar": "- إصلاح لثبات التحديث: لم يعد ملف التثبيت يُكتب فوق ملف البرنامج؛ بل يُتحقق منه ثم يُشغَّل\n- أيقونة البرنامج: تظهر الآن أيقونة Merkezi Servis الخاصة على سطح المكتب وشريط المهام\n- 1.2.0: ✦ الوكيل المساعد (يمكن تشغيله أو إيقافه من الإعدادات)"
+  "tr": "- Arapça: maliyet grafiğinde ay adları doğru (حزيران, تشرين ١ / تشرين ٢; önceden ilk 3 harf)\n- Arapça: kenar çubuğundaki kurum adı baştan kesilmiyor",
+  "en": "- Arabic: month names in the cost chart are correct (previously only the first 3 letters)\n- Arabic: the organisation name in the sidebar is no longer cut off at the start",
+  "ar": "- العربية: أسماء الأشهر في مخطط التكاليف صحيحة (حزيران، تشرين ١ / تشرين ٢؛ كانت تُعرض أول 3 أحرف فقط)\n- العربية: لم يعد اسم المؤسسة في الشريط الجانبي مقطوعاً من بدايته"
 }
