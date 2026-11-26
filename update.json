@@ -1,7 +1,7 @@
 {
-  "version": "2.2.4",
-  "display": "1.2.4",
-  "notes": "Merkezi Servis 1.2.4 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\nEski sürümlerden bu sürüme geçiş bir kez tam kurulumla yapılır (eski güncelleyicideki siyah pencere sorunu yaşanmaz). Sonraki güncellemeler yine arka planda, kendiliğinden. Kayıtlar korunur.",
+  "version": "2.3.0",
+  "display": "1.3.0",
+  "notes": "Merkezi Servis 1.3.0 yeni kurulum programıyla gelir (GitHub Releases). Bu güncellemeden sonra program sizi kurulum dosyasına yönlendirir; verileriniz korunur.\nYeni: ✦ Danışman — kayıtlarınız hakkında soru sorun (kim nerede, değişim günleri, gruplar, hatlar, nöbetteki şoförler, süresi dolan araç belgeleri). İnternet ve kendi yapay zekâ anahtarınız varsa çevrim içi yanıt verir (Gemini, OpenAI, Claude ya da Groq); yoksa yerleşik danışman kayıtlardan çevrim dışı yanıtlar. Yanıt sorunun dilinde verilir. Anahtar Ayarlar → Danışman kartından girilir ve yalnız bu bilgisayarda saklanır; yapay zekâ kullanımınız Kullanım Limitleri kartında görünür. Danışman, Ayarlar → Modüller'den kapatılabilir. Kayıtlara dokunulmaz.",
   "files": [
     "www/app.js",
     "www/assets/icon.png",
