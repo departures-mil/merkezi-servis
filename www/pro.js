@@ -750,6 +750,7 @@
     { id: 'costs', icon: '💰', name: 'Maliyet', desc: 'Maliyet, taşeron hakedişi, kur ayarları', pages: ['costs'], needs: ['vehicles'] },
     { id: 'mainlines', icon: '🧭', name: 'Ana Hatlar & Harita', desc: 'Ana hatlar sayfası ve Genel Durum haritası', pages: ['mainlines'] },
     { id: 'drivers', icon: '🚌', name: 'Şoförler', desc: 'Şoför listesi ve nöbet düzeni', pages: ['drivers'] },
+    { id: 'ai', icon: '✦', name: 'Danışman', desc: 'Kayıtlar üzerinden soru-cevap: çevrim içi (kendi anahtarınızla) ve çevrim dışı', pages: ['ai'] },
     { id: 'records', icon: '📜', name: 'Kayıtlar', desc: 'İşlem geçmişi, çöp kutusu ve yedek listesi (otomatik yedek her zaman çalışır)', pages: ['records'] }
   ];
   const modOn = id => { const st = (hasS() && S.settings.modules) || {}; const M = MODULES.find(x => x.id === id); if (!M) return true; if (st[id] === false) return false; return (M.needs || []).every(modOn); };

@@ -205,7 +205,7 @@ function planFor(dateISO) {
 
 // ---------------- router ----------------
 let page = 'dash';
-const NAV = [['dash', '🏠', 'Genel Durum'], ['persons', '👥', 'Kişiler'], ['mainlines', '🧭', 'Ana Hatlar'], ['lines', '🛣️', 'Hatlar & Duraklar'], ['places', '📍', 'Yerleşim Yerleri'], ['shifts', '🔄', 'Vardiya & Değişim'], ['plan', '🗓️', 'Sefer Planı'], ['trips', '🚍', 'Seferler & Yoklama'], ['drivers', '🚌', 'Şoförler'], ['vehicles', '🚐', 'Araçlar'], ['costs', '💰', 'Maliyet'], ['reports', '🖨️', 'Çıktılar'], ['records', '📜', 'Kayıtlar'], ['settings', '⚙️', 'Ayarlar']];
+const NAV = [['dash', '🏠', 'Genel Durum'], ['ai', '✦', 'Danışman'], ['persons', '👥', 'Kişiler'], ['mainlines', '🧭', 'Ana Hatlar'], ['lines', '🛣️', 'Hatlar & Duraklar'], ['places', '📍', 'Yerleşim Yerleri'], ['shifts', '🔄', 'Vardiya & Değişim'], ['plan', '🗓️', 'Sefer Planı'], ['trips', '🚍', 'Seferler & Yoklama'], ['drivers', '🚌', 'Şoförler'], ['vehicles', '🚐', 'Araçlar'], ['costs', '💰', 'Maliyet'], ['reports', '🖨️', 'Çıktılar'], ['records', '📜', 'Kayıtlar'], ['settings', '⚙️', 'Ayarlar']];
 function renderNav() { if (window.Kabuk) Kabuk.renderNav(); }
 // Sağ üst sıra (Eşitle · Güncelle · Tema · Dil | Küçült · Orta · Tam ekran · Kapat) ortak çekirdekten gelir: www/kabuk.js
 function renderTopbar() { if (window.Kabuk) Kabuk.topbar(); }
@@ -224,7 +224,7 @@ function render() {
   const m = $('#main');
   if (page !== 'dash' && page !== 'mainlines' && LMAP) { try { LMAP.remove(); } catch (e) { } LMAP = null; }
   if (PRO() && !PRO().navAllowed(page)) page = 'dash';
-  const fn = Object.assign({ dash: renderDash, mainlines: renderMainLines, persons: renderPersons, lines: renderLines, places: renderPlaces, shifts: renderShifts, drivers: renderDrivers, plan: renderPlan, reports: renderReports, settings: renderSettings }, PRO() ? PRO().pages : {})[page] || renderDash;
+  const fn = Object.assign({ dash: renderDash, mainlines: renderMainLines, persons: renderPersons, lines: renderLines, places: renderPlaces, shifts: renderShifts, drivers: renderDrivers, plan: renderPlan, reports: renderReports, settings: renderSettings, ai: m => (window.Danisman ? Danisman.render(m) : renderDash(m)) }, PRO() ? PRO().pages : {})[page] || renderDash;
   m.innerHTML = ''; fn(m);
   if (PRO()) PRO().afterRender(m);
 }
@@ -784,6 +784,7 @@ function renderSettings(m) {
       ${S.letterheads.map(l => `<div class="drv ${l.id === s.defaultLetterheadId ? 'on' : ''}"><span class="nm">${l.id === s.defaultLetterheadId ? '⭐ ' : ''}${h(l.name)} <span class="small muted">${l.kind === 'image' ? '(' + t('resim') + ')' : '(' + t('şablon') + ')'}</span></span><button class="btn sm" data-lhdef="${l.id}">${t('Favori yap')}</button><button class="btn sm" data-lhedit="${l.id}">${t('Düzenle')}</button>${S.letterheads.length > 1 ? `<button class="btn sm danger" data-lhdel="${l.id}">✕</button>` : ''}</div>`).join('')}
       <div class="row" style="margin-top:8px"><button class="btn" id="lhAddImg">+ ${t('Resimden antet ekle')}</button><button class="btn" id="lhAddTxt">+ ${t('Yazılı antet ekle')}</button></div>
       <div class="lh-prev"><div class="print-area" style="display:block">${letterheadHtml(s.defaultLetterheadId).replace('<div class="wm"></div>', '')}</div></div></div>
+    ${window.Danisman ? Danisman.settingsHtml() : ''}
     ${PRO() ? PRO().settingsHtml() : ''}
     <div class="card"><h2>${t('Yedekleme')}</h2>
       <div class="row"><button class="btn" id="bkExp">${t('Yedek al (JSON)')}</button><button class="btn" id="bkImp">${t('Yedekten geri yükle')}</button><button class="btn danger" id="bkReset">${t('Başlangıç verisine dön')}</button></div>
@@ -802,6 +803,7 @@ function renderSettings(m) {
   $('#bkExp').onclick = () => saveBlob('merkezi-servis-yedek-' + todayISO() + '.json', new TextEncoder().encode(JSON.stringify(S, null, 1)));
   $('#bkImp').onclick = importBackup;
   if (PRO()) PRO().bindSettings(m);
+  if (window.Danisman) Danisman.bindSettings(m);
   $('#bkReset').onclick = () => (PRO() && !PRO().needAdmin()) ? null : confirmDlg(t("Tüm veriler silinip Excel'den gelen başlangıç verisi yüklenecek. Devam?"), async () => { const lang = S.settings.lang; S = await loadSeed(emptyState()); S.settings.lang = lang; save(true); mapFitted = false; render(); });
   if (isElectron) { window.electronAPI.dataPath().then(p => { const d = $('#dataPath'); if (d) d.textContent = t('Veri dosyası') + ': ' + p; }); }
 }

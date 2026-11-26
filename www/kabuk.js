@@ -23,7 +23,7 @@
     'Renk şeması, koyu/açık mod ve yazı boyutu Görünüm kartındadır. Kurum rengi seçilirse şemanın vurgu rengini geçersiz kılar.': 'Colour scheme, dark/light mode and text size are in the Appearance card. A brand colour, if chosen, overrides the scheme accent.',
     'Bu program bulut ya da Wi-Fi eşitlemesi kullanmaz; veriler yalnız bu bilgisayarda saklanır. Başka bilgisayara taşımak ya da yedeklemek için:': 'This program does not use cloud or Wi-Fi sync; data is stored only on this computer. To back up or move it to another computer:',
     'Yedek al (JSON)': 'Back up (JSON)', 'Yedekten geri yükle': 'Restore from backup', "Excel'e ver": 'Export to Excel', 'Kapat': 'Close',
-    'Bu program sınırlı bir bulut ya da yapay zekâ hizmeti kullanmıyor; günlük kullanım sınırı yok. Veriler bu bilgisayarda kalır, güncellemeler GitHub\'dan ücretsiz gelir.': 'This program does not use any limited cloud or AI service, so there is no daily usage limit. Data stays on this computer and updates come free from GitHub.',
+    'Bu program bulut eşitlemesi kullanmaz; veriler bu bilgisayarda kalır, güncellemeler GitHub\'dan ücretsiz gelir. Danışman yalnız sizin kendi yapay zekâ anahtarınızla çalışır.': 'This program does not use cloud sync; data stays on this computer and updates come free from GitHub. The Advisor works only with your own AI key.',
     'Yeni kurulum gerekli': 'New installer required',
     'Merkezi Servis {0} yeni bir kurulum programıyla gelir: tam ekran açılış, tek tuşla güncelleme (yalnızca değişen kısımlar indirilir) ve yeni görünüm. Bu sürümü bir kez kurun; sonraki güncellemeler kendiliğinden gelir.': 'Merkezi Servis {0} comes with a new installer: full-screen start, one-click updates (only the changed parts are downloaded) and a new look. Install it once; later updates arrive automatically.',
     'Verileriniz korunur: kişiler, hatlar, seferler ve ayarlar aynı yerde kalır, yeni sürüm onları kendiliğinden açar.': 'Your data is kept: people, lines, trips and settings stay where they are and the new version opens them automatically.',
@@ -36,7 +36,7 @@
     'Renk şeması, koyu/açık mod ve yazı boyutu Görünüm kartındadır. Kurum rengi seçilirse şemanın vurgu rengini geçersiz kılar.': 'نظام الألوان والوضع الداكن/الفاتح وحجم الخط موجودة في بطاقة المظهر. إذا اخترت لون المؤسسة فإنه يحلّ محل لون التمييز في النظام.',
     'Bu program bulut ya da Wi-Fi eşitlemesi kullanmaz; veriler yalnız bu bilgisayarda saklanır. Başka bilgisayara taşımak ya da yedeklemek için:': 'لا يستخدم هذا البرنامج المزامنة السحابية أو عبر Wi-Fi؛ تُحفظ البيانات على هذا الحاسوب فقط. للنسخ الاحتياطي أو النقل إلى حاسوب آخر:',
     'Yedek al (JSON)': 'نسخة احتياطية (JSON)', 'Yedekten geri yükle': 'استعادة من نسخة احتياطية', "Excel'e ver": 'تصدير إلى Excel', 'Kapat': 'إغلاق',
-    'Bu program sınırlı bir bulut ya da yapay zekâ hizmeti kullanmıyor; günlük kullanım sınırı yok. Veriler bu bilgisayarda kalır, güncellemeler GitHub\'dan ücretsiz gelir.': 'لا يستخدم هذا البرنامج أي خدمة سحابية أو ذكاء اصطناعي محدودة، لذا لا يوجد حد استخدام يومي. تبقى البيانات على هذا الحاسوب وتصل التحديثات مجاناً من GitHub.',
+    'Bu program bulut eşitlemesi kullanmaz; veriler bu bilgisayarda kalır, güncellemeler GitHub\'dan ücretsiz gelir. Danışman yalnız sizin kendi yapay zekâ anahtarınızla çalışır.': 'لا يستخدم هذا البرنامج المزامنة السحابية؛ تبقى البيانات على هذا الحاسوب وتصل التحديثات مجاناً من GitHub. يعمل المستشار بمفتاح الذكاء الاصطناعي الخاص بك فقط.',
     'Yeni kurulum gerekli': 'يلزم مثبّت جديد',
     'Merkezi Servis {0} yeni bir kurulum programıyla gelir: tam ekran açılış, tek tuşla güncelleme (yalnızca değişen kısımlar indirilir) ve yeni görünüm. Bu sürümü bir kez kurun; sonraki güncellemeler kendiliğinden gelir.': 'يأتي Merkezi Servis {0} بمثبّت جديد: فتح بملء الشاشة، وتحديث بضغطة واحدة (تُنزَّل الأجزاء المتغيرة فقط)، ومظهر جديد. ثبّته مرة واحدة؛ وستصل التحديثات التالية تلقائياً.',
     'Verileriniz korunur: kişiler, hatlar, seferler ve ayarlar aynı yerde kalır, yeni sürüm onları kendiliğinden açar.': 'بياناتك محفوظة: الأشخاص والخطوط والرحلات والإعدادات تبقى في مكانها ويفتحها الإصدار الجديد تلقائياً.',
@@ -64,8 +64,8 @@
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
     sheet: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>'
   });
-  var ICON = { dash: 'home', persons: 'users', mainlines: 'compass', lines: 'route', places: 'pin', shifts: 'repeat', plan: 'calendar', trips: 'bus', drivers: 'idcard', vehicles: 'car', costs: 'coins', reports: 'printer', records: 'file', settings: 'settings' };
-  var GROUPS = [['Genel', ['dash']], ['Servis', ['persons', 'mainlines', 'lines', 'places', 'shifts', 'plan', 'trips']], ['Filo', ['drivers', 'vehicles', 'costs']], ['Sistem', ['reports', 'records', 'settings']]];
+  var ICON = { dash: 'home', ai: 'sparkles', persons: 'users', mainlines: 'compass', lines: 'route', places: 'pin', shifts: 'repeat', plan: 'calendar', trips: 'bus', drivers: 'idcard', vehicles: 'car', costs: 'coins', reports: 'printer', records: 'file', settings: 'settings' };
+  var GROUPS = [['Genel', ['dash', 'ai']], ['Servis', ['persons', 'mainlines', 'lines', 'places', 'shifts', 'plan', 'trips']], ['Filo', ['drivers', 'vehicles', 'costs']], ['Sistem', ['reports', 'records', 'settings']]];
 
   /* ---------- "klasik" şema: 1.0.x'in style.css renkleri (açık = eski varsayılan, koyu = eski html.dark) ---------- */
   FC.look.registerScheme('klasik', {
@@ -108,7 +108,7 @@
   window.__msErrors = [];
   window.addEventListener('error', function (e) { if (e && e.message) window.__msErrors.push(String(e.message)); });
   FC.init({ app: APP, repo: REPO, version: VER, setupChannel: 'win-setup', announcements: true, whatsnew: false, onboarding: false });
-  var OB = { firebase: false, ai: false };   // bu uygulama Firebase ve yapay zekâ kullanmaz
+  var OB = { firebase: false };   // bu uygulama Firebase kullanmaz; yapay zekâ adımı Danışman içindir (kullanıcının kendi anahtarı)
 
   /* ---------- kenar çubuğu ---------- */
   function renderNav() {
@@ -184,8 +184,9 @@
 
   /* ---------- ayarlar ---------- */
   function usageCard() {
-    var c = ui.card({ key: 'usage', title: FC.t('fc.usage.title'), icon: 'gauge' });
-    c.appendChild(ui.el('div.notice.ok', { text: T('Bu program sınırlı bir bulut ya da yapay zekâ hizmeti kullanmıyor; günlük kullanım sınırı yok. Veriler bu bilgisayarda kalır, güncellemeler GitHub\'dan ücretsiz gelir.') }));
+    // Firebase kullanılmaz; yapay zekâ (Danışman) yalnız kullanıcının kendi anahtarıyla çalışır ve burada sayılır.
+    var c = FC.usage.card({ firebase: false, providers: ['gemini', 'openai', 'anthropic', 'groq'] });
+    c.appendChild(ui.el('div.notice.ok', { text: T('Bu program bulut eşitlemesi kullanmaz; veriler bu bilgisayarda kalır, güncellemeler GitHub\'dan ücretsiz gelir. Danışman yalnız sizin kendi yapay zekâ anahtarınızla çalışır.') }));
     return c;
   }
   function buildSettings(grid, appCards) {

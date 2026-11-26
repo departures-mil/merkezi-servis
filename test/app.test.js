@@ -106,3 +106,19 @@ test('paketleme: NSIS, kullanıcı başına kurulum, kısayollar, 3 dil; app.asa
   assert.match(wf, /win-app=app\.asar/); assert.match(wf, /win-setup=\*Setup\*\.exe/);
   assert.match(wf, /reusable-release\.yml@main/); assert.match(wf, /needs: \[test, build\]/);
 });
+
+test('Danışman: menüde, modülde, ayarlarda; metinlerin İngilizce ve Arapçası var; anahtar yalnız kullanıcınınki', () => {
+  const src = R('www/danisman.js');
+  assert.ok(R('www/index.html').indexOf('danisman.js') > R('www/index.html').indexOf('app.js'), 'danisman.js app.js\'ten sonra yüklenmeli');
+  assert.match(R('www/app.js'), /\['ai', '✦', 'Danışman'\]/);
+  assert.match(R('www/pro.js'), /id: 'ai'/);
+  assert.match(R('www/kabuk.js'), /\['dash', 'ai'\]/);
+  const en = src.slice(src.indexOf('var EN = {'), src.indexOf('var AR = {'));
+  const ar = src.slice(src.indexOf('var AR = {'), src.indexOf('if (window.I18N)'));
+  const keys = [...en.matchAll(/'((?:[^'\\]|\\.)+)':\s*'/g)].map((m) => m[1]);
+  assert.ok(keys.length > 20);
+  for (const k of keys) assert.ok(ar.includes("'" + k + "':"), 'ar eksik: ' + k);
+  for (const l of ['tr', 'en', 'ar']) assert.ok(new RegExp('\\n    ' + l + ': \\{').test(src), 'çevrim dışı kalıp: ' + l);
+  assert.ok(!/AIza[0-9A-Za-z_-]{30,}/.test(src), 'gömülü ortak anahtar olmamalı');
+  assert.match(src, /FC\.storage\.get\('ai'/);
+});
